@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+
+  app:
+    image: node:20
+    container_name: somitee_hq_app
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: sh -c "npm install && npx prisma generate && npx nest start --watch"
+    ports:
+      - '4000:4000'
+    environment:
+      DATABASE_URL: mysql://somitee:somitee_password@mysql:3306/somitee_hq
+      REDIS_HOST: redis
+      JWT_SECRET: super_secret_jwt
+      NODE_ENV: development
+      PORT: 4000
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - somitee_hq_network
+
+
+  mysql:
+    image: mysql:8
+    ports:
+      - '3307:3306'
+    environment:
+      MYSQL_DATABASE: somitee_hq
+      MYSQL_USER: somitee
+      MYSQL_PASSWORD: somitee_password
+      MYSQL_ROOT_PASSWORD: root_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - somitee_hq_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer:latest
+    container_name: somitee_hq_adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+    restart: unless-stopped
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+    networks:
+      - somitee_hq_network
+
+  
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  somitee_hq_network:

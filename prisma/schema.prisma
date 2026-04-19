@@ -1,0 +1,565 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+model User {
+  id         String   @id @default(uuid())
+  name       String
+  email      String   @unique
+  password   String
+  role       UserRole @default(main_user)
+  phone      String?
+
+  somiteeId  String?  @map("somitee_id")
+  somitee    Somitee? @relation("UserSomitee", fields: [somiteeId], references: [id])
+
+  userId     String?  @map("user_id")
+  createdBy  User?    @relation("UserCreatedBy", fields: [userId], references: [id])
+  createdUsers User[] @relation("UserCreatedBy")
+  createdSomitees Somitee[] @relation("SomiteeCreatedBy")
+
+  // New fields for managed users
+  roleIds    Json     @default("[]") @map("role_ids")
+  status     UserStatus @default(active)
+  isManaged  Boolean  @default(false) @map("is_managed")
+
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([somiteeId])
+  @@index([createdAt])
+
+
+    memberCreated       Member[]        @relation("MemberCreatedBy")
+    memberRequests      MemberRequest[] @relation("MemberRequestCreatedBy")
+    paymentsCreated     Payment[]       @relation("PaymentCreatedBy")
+    paymentItemsCreated PaymentItem[]   @relation("PaymentItemCreatedBy")
+    transactionsCreated Transaction[]   @relation("TransactionCreatedBy")
+    expensesCreated     Expense[]       @relation("ExpenseCreatedBy")
+    cashEntriesCreated  CashBookEntry[] @relation("CashBookCreatedBy")
+    bankAccountsCreated BankAccount[]   @relation("BankAccountCreatedBy")
+    bankTxCreated       BankTransaction[] @relation("BankTransactionCreatedBy")
+    statsCreated        StatsSummary[]  @relation("StatsCreatedBy")
+    ledgerCreated       LedgerEntry[]   @relation("LedgerCreatedBy")
+
+    // New relations
+    approvalsCreated    Approval[]      @relation("ApprovalCreatedBy")
+    approvalsReviewed   Approval[]      @relation("ApprovalReviewedBy")
+    roleAssignments     UserRoleAssignment[] @relation("UserRoleAssignments")
+}
+
+
+enum UserRole {
+  super_admin
+  main_user
+  member
+}
+
+enum UserStatus {
+  active
+  inactive
+}
+
+model Somitee {
+  id           String   @id @default(uuid())
+  name         String
+  email        String
+  phone        String
+  status       SomiteeStatus @default(active)
+  plan         String   @default("basic")
+  blockedReason String?
+  somiteeId    String?  @map("somitee_id")
+  userId       String?  @map("user_id")
+  createdBy    User?    @relation("SomiteeCreatedBy", fields: [userId], references: [id])
+  members      Member[]
+  requests     MemberRequest[]
+  payments      Payment[]
+  transactions  Transaction[]
+  expenses      Expense[]
+  bankAccounts  BankAccount[]
+  paymentItems  PaymentItem[]
+  cashBookEntries CashBookEntry[]
+  bankTransactions BankTransaction[]
+  ledgerEntries LedgerEntry[]
+  statsSummaries StatsSummary[]
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt     @map("updated_at")
+
+  users        User[]   @relation("UserSomitee")
+
+  // New relations
+  roles        Role[]
+  approvals    Approval[]
+
+  @@index([createdAt])
+}
+
+enum SomiteeStatus {
+  active
+  blocked
+}
+
+model Member {
+  id           String      @id @default(uuid())
+  name         String
+  shopName     String
+  phone        String
+  address      String?
+  nid          String
+  status       MemberStatus @default(active)
+  somiteeId    String      @map("somitee_id")
+  somitee      Somitee     @relation(fields: [somiteeId], references: [id])
+  userId       String      @map("user_id")
+  createdBy User @relation("MemberCreatedBy", fields: [userId], references: [id])
+  monthlyFee   Int
+  billingCycle String      @default("monthly")
+  totalDue     Int         @default(0)
+  totalPaid    Int         @default(0)
+  joinDate     DateTime    @default(now()) @map("join_date")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt     @map("updated_at")
+  payments     Payment[]
+  paymentItems PaymentItem[]
+  transactions  Transaction[]
+  ledgerEntries LedgerEntry[]
+
+  
+
+  @@index([somiteeId])
+  @@index([somiteeId, id])
+  @@index([somiteeId, createdAt])
+}
+
+enum MemberStatus {
+  active
+  inactive
+}
+
+model MemberRequest {
+  id             String       @id @default(uuid())
+  name           String
+  shopName       String
+  mobile         String
+  address        String?
+  nid            String
+  monthlyFee     Int
+  billingCycle   String       @default("monthly")
+  status         RequestStatus @default(pending)
+  somiteeId      String       @map("somitee_id")
+  somitee        Somitee      @relation(fields: [somiteeId], references: [id])
+  userId         String       @map("user_id")
+  createdBy User @relation("MemberRequestCreatedBy", fields: [userId], references: [id])
+  rejectionNote  String?
+  approvedAt     DateTime?
+  approvedBy     String?
+  rejectedAt     DateTime?
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt     @map("updated_at")
+  
+
+  @@index([somiteeId])
+  @@index([somiteeId, createdAt])
+}
+
+enum RequestStatus {
+  pending
+  approved
+  rejected
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  memberId       String        @map("member_id")
+  member         Member        @relation(fields: [memberId], references: [id])
+  amount         Int
+  paymentDate    DateTime      @map("payment_date")
+  method         String
+  status         String        @default("pending")
+  category       String?
+  transactionId  String?       @map("transaction_id")
+  note           String?
+  verifiedAt     DateTime?     @map("verified_at")
+  financialYear  String?       @map("financial_year")
+  somiteeId      String        @map("somitee_id")
+  somitee        Somitee       @relation(fields: [somiteeId], references: [id])
+  userId         String        @map("user_id")
+  createdBy User @relation("PaymentCreatedBy", fields: [userId], references: [id])
+  paymentItems   PaymentItem[]
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt     @map("updated_at")
+
+  @@index([somiteeId])
+  @@index([somiteeId, memberId])
+  @@index([somiteeId, paymentDate])
+  @@index([somiteeId, financialYear])
+}
+
+model PaymentItem {
+  id             String   @id @default(uuid())
+  paymentId      String   @map("payment_id")
+  payment        Payment  @relation(fields: [paymentId], references: [id])
+  memberId       String   @map("member_id")
+  member         Member   @relation(fields: [memberId], references: [id])
+  month          Int
+  financialYear  String   @map("financial_year")
+  amount         Int
+  somiteeId      String   @map("somitee_id")
+  somitee        Somitee  @relation(fields: [somiteeId], references: [id])
+  userId         String   @map("user_id")
+  createdBy User @relation("PaymentItemCreatedBy", fields: [userId], references: [id])
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt     @map("updated_at")
+
+  @@unique([memberId, month, financialYear])
+  @@index([somiteeId])
+  @@index([somiteeId, memberId])
+  @@index([somiteeId, financialYear])
+}
+
+model Transaction {
+  id            String    @id @default(uuid())
+  memberId      String?   @map("member_id")
+  member        Member?   @relation(fields: [memberId], references: [id])
+  memberName    String?
+  type          String
+  amount        Int
+  date          DateTime
+  status        String
+  method        String
+  category      String?
+  transactionId String?   @map("transaction_id")
+  note          String?
+  approvedAt    DateTime?
+  somiteeId     String    @map("somitee_id")
+  somitee       Somitee   @relation(fields: [somiteeId], references: [id])
+  userId        String    @map("user_id")
+  createdBy User @relation("TransactionCreatedBy", fields: [userId], references: [id])
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt     @map("updated_at")
+
+  @@index([somiteeId])
+  @@index([somiteeId, memberId])
+  @@index([somiteeId, date])
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  amount      Int
+  date        DateTime
+  category    String
+  method      String
+  note        String?
+  receiptUrl  String?  @map("receipt_url")
+  status      String   @default("approved")
+  somiteeId   String   @map("somitee_id")
+  somitee     Somitee  @relation(fields: [somiteeId], references: [id])
+  userId      String   @map("user_id")
+  createdBy User @relation("ExpenseCreatedBy", fields: [userId], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt     @map("updated_at")
+
+  @@index([somiteeId])
+  @@index([somiteeId, createdAt])
+}
+
+model CashBookEntry {
+  id            String    @id @default(uuid())
+  date          DateTime
+  description   String
+  cashIn        Int
+  cashOut       Int
+  balance       Int
+  referenceType String?
+  referenceId   String?
+  somiteeId     String   @map("somitee_id")
+  somitee       Somitee  @relation(fields: [somiteeId], references: [id])
+  userId        String   @map("user_id")
+  createdBy User @relation("CashBookCreatedBy", fields: [userId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([somiteeId])
+  @@index([somiteeId, date])
+}
+
+model SmsTemplate {
+  id        String   @id @default(uuid())
+  name      String
+  body      String
+  variables Json
+  type      String
+  somiteeId String   @map("somitee_id")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([somiteeId])
+}
+
+model SmsHistory {
+  id         String   @id @default(uuid())
+  date       DateTime @default(now())
+  template   String?
+  recipients Int
+  sent       Int
+  failed     Int
+  cost       Float?
+  details    Json?
+  somiteeId  String   @map("somitee_id")
+
+  @@index([somiteeId])
+}
+
+model SmsConfig {
+  id                 String   @id
+  provider           String
+  apiKey             String
+  senderId           String
+  autoSendOnPayment  Boolean  @default(false)
+  autoSendDueReminder Boolean @default(false)
+  reminderDayOfMonth Int?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model CompanySettings {
+  id         String   @id @default(uuid())
+  somiteeId  String   @unique @map("somitee_id")
+  name       String
+  logo       String?
+  signature  String?
+  address    String?
+  phone      String?
+  email      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model PrintTemplate {
+  id              String   @id
+  showLogo        Boolean  @default(true)
+  showCompanyName Boolean  @default(true)
+  showSignature   Boolean  @default(true)
+  showFooterNotes Boolean  @default(true)
+  footerNotes     String?
+  marginTop       Int      @default(20)
+  marginBottom    Int      @default(20)
+  marginLeft      Int      @default(15)
+  marginRight     Int      @default(15)
+  paperSize       String   @default("A4")
+  orientation     String   @default("portrait")
+  updatedAt       DateTime @updatedAt
+}
+
+model Faq {
+  id        String   @id @default(uuid())
+  question  String
+  answer    String
+  category  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  actionUrl String?
+  somiteeId String   @map("somitee_id")
+
+  @@index([somiteeId])
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  userId      String
+  userName    String
+  action      String
+  description String
+  metadata    Json?
+  ipAddress   String?
+  somiteeId   String   @map("somitee_id")
+  createdAt   DateTime @default(now())
+
+  @@index([somiteeId])
+}
+
+model SubscriptionPlan {
+  id         String   @id
+  name       String
+  price      Int
+  maxMembers Int
+  features   Json
+  status     String
+}
+
+model BankAccount {
+  id             String            @id @default(uuid())
+  bankName       String            @map("bank_name")
+  accountName    String            @map("account_name")
+  accountNumber  String            @map("account_number")
+  balance        Int
+  openingBalance Int               @map("opening_balance")
+  somiteeId      String            @map("somitee_id")
+  somitee        Somitee           @relation(fields: [somiteeId], references: [id])
+  userId         String            @map("user_id")
+createdBy User @relation("BankAccountCreatedBy", fields: [userId], references: [id])
+  transactions   BankTransaction[]
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt     @map("updated_at")
+
+  @@index([somiteeId])
+  @@index([somiteeId, createdAt])
+}
+
+model BankTransaction {
+  id             String      @id @default(uuid())
+  bankAccountId  String      @map("bank_account_id")
+  bankAccount    BankAccount @relation(fields: [bankAccountId], references: [id])
+  type           String
+  amount         Int
+  date           DateTime
+  note           String?
+  reference      String?
+  balanceAfter   Int         @map("balance_after")
+  somiteeId      String      @map("somitee_id")
+  somitee        Somitee     @relation(fields: [somiteeId], references: [id])
+  userId         String      @map("user_id")
+  createdBy User @relation("BankTransactionCreatedBy", fields: [userId], references: [id])
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt     @map("updated_at")
+
+  @@index([somiteeId])
+  @@index([somiteeId, bankAccountId])
+  @@index([somiteeId, date])
+}
+
+model StatsSummary {
+  id              String   @id @default(uuid())
+  date            DateTime
+  totalCollection Int      @map("total_collection")
+  totalExpense    Int      @map("total_expense")
+  totalDue        Int      @map("total_due")
+  somiteeId       String   @map("somitee_id")
+  somitee         Somitee  @relation(fields: [somiteeId], references: [id])
+  periodType      StatsPeriodType @default(daily)
+  userId          String          @map("user_id")
+  createdBy User @relation("StatsCreatedBy", fields: [userId], references: [id])
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt     @map("updated_at")
+
+  @@index([somiteeId])
+  @@index([somiteeId, date])
+  @@unique([somiteeId, date, periodType])
+}
+
+enum StatsPeriodType {
+  daily
+  monthly
+}
+
+model LedgerEntry {
+  id            String    @id @default(uuid())
+  date          DateTime
+  description   String
+  type          String
+  debit         Int?
+  credit        Int?
+  balance       Int
+  referenceType String?   @map("reference_type")
+  referenceId   String?   @map("reference_id")
+  memberId      String?   @map("member_id")
+  memberName    String?   @map("member_name")
+  somiteeId     String    @map("somitee_id")
+  somitee       Somitee   @relation(fields: [somiteeId], references: [id])
+  userId        String    @map("user_id")
+  createdBy User @relation("LedgerCreatedBy", fields: [userId], references: [id])
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt     @map("updated_at")
+
+  member        Member?   @relation(fields: [memberId], references: [id])
+
+  @@index([somiteeId])
+  @@index([somiteeId, memberId])
+  @@index([somiteeId, createdAt])
+}
+
+// New models for Roles & Permissions, Approvals, and Managed Users
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  permissions Json     @default("[]")
+  isPreset    Boolean  @default(false) @map("is_preset")
+  somiteeId   String?  @map("somitee_id")
+  somitee     Somitee? @relation(fields: [somiteeId], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  assignments UserRoleAssignment[]
+
+  @@unique([name, somiteeId])
+  @@index([somiteeId])
+}
+
+model UserRoleAssignment {
+  id       String @id @default(cuid())
+  userId   String @map("user_id")
+  user     User   @relation("UserRoleAssignments", fields: [userId], references: [id])
+  roleId   String @map("role_id")
+  role     Role   @relation(fields: [roleId], references: [id])
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+model Approval {
+  id            String      @id @default(cuid())
+  type          ApprovalType
+  title         String
+  amount        Int?
+  description   String?
+  status        ApprovalStatus @default(pending)
+  payload       Json
+  createdById   String      @map("created_by_id")
+  createdBy     User        @relation("ApprovalCreatedBy", fields: [createdById], references: [id])
+  createdByName String      @map("created_by_name")
+  reviewedById  String?     @map("reviewed_by_id")
+  reviewedBy    User?       @relation("ApprovalReviewedBy", fields: [reviewedById], references: [id])
+  reviewedByName String?    @map("reviewed_by_name")
+  reviewedAt    DateTime?   @map("reviewed_at")
+  rejectionNote String?     @map("rejection_note")
+  createdRecordId String?   @map("created_record_id")
+  somiteeId     String      @map("somitee_id")
+  somitee       Somitee     @relation(fields: [somiteeId], references: [id])
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  @@index([somiteeId])
+  @@index([somiteeId, status])
+  @@index([somiteeId, type])
+  @@index([somiteeId, createdAt])
+}
+
+enum ApprovalType {
+  collection
+  expense
+  bank
+  member
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+}
+
