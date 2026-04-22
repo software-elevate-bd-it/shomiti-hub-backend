@@ -32,6 +32,7 @@ model User {
 
   @@index([somiteeId])
   @@index([createdAt])
+  @@map("users")
 
 
     memberCreated       Member[]        @relation("MemberCreatedBy")
@@ -96,6 +97,7 @@ model Somitee {
   approvals    Approval[]
 
   @@index([createdAt])
+  @@map("somitees")
 }
 
 enum SomiteeStatus {
@@ -132,6 +134,7 @@ model Member {
   @@index([somiteeId])
   @@index([somiteeId, id])
   @@index([somiteeId, createdAt])
+  @@map("members")
 }
 
 enum MemberStatus {
@@ -163,6 +166,7 @@ model MemberRequest {
 
   @@index([somiteeId])
   @@index([somiteeId, createdAt])
+  @@map("member_requests")
 }
 
 enum RequestStatus {
@@ -196,6 +200,7 @@ model Payment {
   @@index([somiteeId, memberId])
   @@index([somiteeId, paymentDate])
   @@index([somiteeId, financialYear])
+  @@map("payments")
 }
 
 model PaymentItem {
@@ -218,6 +223,7 @@ model PaymentItem {
   @@index([somiteeId])
   @@index([somiteeId, memberId])
   @@index([somiteeId, financialYear])
+  @@map("payment_items")
 }
 
 model Transaction {
@@ -244,6 +250,7 @@ model Transaction {
   @@index([somiteeId])
   @@index([somiteeId, memberId])
   @@index([somiteeId, date])
+  @@map("transactions")
 }
 
 model Expense {
@@ -264,6 +271,7 @@ model Expense {
 
   @@index([somiteeId])
   @@index([somiteeId, createdAt])
+  @@map("expenses")
 }
 
 model CashBookEntry {
@@ -284,6 +292,7 @@ model CashBookEntry {
 
   @@index([somiteeId])
   @@index([somiteeId, date])
+  @@map("cash_book_entries")
 }
 
 model SmsTemplate {
@@ -297,6 +306,7 @@ model SmsTemplate {
   updatedAt DateTime @updatedAt
 
   @@index([somiteeId])
+  @@map("sms_templates")
 }
 
 model SmsHistory {
@@ -311,6 +321,7 @@ model SmsHistory {
   somiteeId  String   @map("somitee_id")
 
   @@index([somiteeId])
+  @@map("sms_history")
 }
 
 model SmsConfig {
@@ -323,6 +334,7 @@ model SmsConfig {
   reminderDayOfMonth Int?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+  @@map("sms_configs")
 }
 
 model CompanySettings {
@@ -336,6 +348,7 @@ model CompanySettings {
   email      String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  @@map("company_settings")
 }
 
 model PrintTemplate {
@@ -352,6 +365,7 @@ model PrintTemplate {
   paperSize       String   @default("A4")
   orientation     String   @default("portrait")
   updatedAt       DateTime @updatedAt
+  @@map("print_templates")
 }
 
 model Faq {
@@ -361,6 +375,7 @@ model Faq {
   category  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  @@map("faqs")
 }
 
 model Notification {
@@ -374,6 +389,7 @@ model Notification {
   somiteeId String   @map("somitee_id")
 
   @@index([somiteeId])
+  @@map("notifications")
 }
 
 model ActivityLog {
@@ -388,6 +404,7 @@ model ActivityLog {
   createdAt   DateTime @default(now())
 
   @@index([somiteeId])
+  @@map("activity_logs")
 }
 
 model SubscriptionPlan {
@@ -397,6 +414,7 @@ model SubscriptionPlan {
   maxMembers Int
   features   Json
   status     String
+  @@map("subscription_plans")
 }
 
 model BankAccount {
@@ -416,6 +434,7 @@ createdBy User @relation("BankAccountCreatedBy", fields: [userId], references: [
 
   @@index([somiteeId])
   @@index([somiteeId, createdAt])
+  @@map("bank_accounts")
 }
 
 model BankTransaction {
@@ -438,6 +457,7 @@ model BankTransaction {
   @@index([somiteeId])
   @@index([somiteeId, bankAccountId])
   @@index([somiteeId, date])
+  @@map("bank_transactions")
 }
 
 model StatsSummary {
@@ -457,6 +477,7 @@ model StatsSummary {
   @@index([somiteeId])
   @@index([somiteeId, date])
   @@unique([somiteeId, date, periodType])
+  @@map("stats_summaries")
 }
 
 enum StatsPeriodType {
@@ -488,6 +509,7 @@ model LedgerEntry {
   @@index([somiteeId])
   @@index([somiteeId, memberId])
   @@index([somiteeId, createdAt])
+  @@map("ledger_entries")
 }
 
 // New models for Roles & Permissions, Approvals, and Managed Users
@@ -507,6 +529,7 @@ model Role {
 
   @@unique([name, somiteeId])
   @@index([somiteeId])
+  @@map("roles")
 }
 
 model UserRoleAssignment {
@@ -520,6 +543,7 @@ model UserRoleAssignment {
   @@unique([userId, roleId])
   @@index([userId])
   @@index([roleId])
+  @@map("user_role_assignments")
 }
 
 model Approval {
@@ -548,6 +572,7 @@ model Approval {
   @@index([somiteeId, status])
   @@index([somiteeId, type])
   @@index([somiteeId, createdAt])
+  @@map("approvals")
 }
 
 enum ApprovalType {

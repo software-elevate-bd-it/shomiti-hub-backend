@@ -11,9 +11,11 @@ export class AuthService {
 
   async validateUser(email: string, password: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) {
+    if (!user || !user.password) {
       return null;
     }
+    console.log('user', user);
+    
     const passwordMatches = await bcrypt.compare(password, user.password);
     if (!passwordMatches) {
       return null;
@@ -34,7 +36,7 @@ export class AuthService {
       },
     });
 
-    if (!user || !(await bcrypt.compare(dto.password, user.password))) {
+    if (!user || !user.password || !(await bcrypt.compare(dto.password, user.password))) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
@@ -52,7 +54,7 @@ export class AuthService {
       role: user.role,
       somiteeId: user.somiteeId,
       permissions,
-      roleIds: user.roleIds,
+      roleIds: user.roleIds || [],
     };
 
     const response: any = {
@@ -87,10 +89,16 @@ export class AuthService {
 
     // For managed users, collect permissions from assigned roles
     const permissions = new Set<string>();
-    user.roleAssignments.forEach((assignment: any) => {
-      const rolePermissions = assignment.role.permissions as string[];
-      rolePermissions.forEach(permission => permissions.add(permission));
-    });
+    if (user.roleAssignments) {
+      user.roleAssignments.forEach((assignment: any) => {
+        if (assignment.role && assignment.role.permissions) {
+          const rolePermissions = assignment.role.permissions as string[];
+          if (Array.isArray(rolePermissions)) {
+            rolePermissions.forEach(permission => permissions.add(permission));
+          }
+        }
+      });
+    }
 
     return Array.from(permissions);
   }

@@ -1,46 +1,52 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const bcrypt =  require('bcrypt');
+
 
 async function main() {
-  const somitee = await prisma.somitee.upsert({
-    where: { id: 'sample-somitee-id' },
-    update: {
-      name: 'Somitee HQ Demo',
-      email: 'demo@somitee.dev',
-      phone: '+8801234567890',
-      status: 'active',
-      plan: 'basic'
-    },
-    create: {
-      id: 'sample-somitee-id',
-      name: 'Somitee HQ Demo',
-      email: 'demo@somitee.dev',
-      phone: '+8801234567890',
-      status: 'active',
-      plan: 'basic'
-    }
-  });
+  const password = await bcrypt.hash("1234546", 12);
+  console.log('password', password);
+  
 
-  const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@somitee.dev' },
-    update: {
-      name: 'Demo Admin',
-      password: '$2b$10$xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-      role: 'main_user',
-      phone: '+8801234567890',
-      somiteeId: somitee.id
-    },
-    create: {
-      id: 'sample-admin-user-id',
-      name: 'Demo Admin',
-      email: 'admin@somitee.dev',
-      password: '$2b$10$xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-      role: 'main_user',
-      phone: '+8801234567890',
-      somiteeId: somitee.id,
-      userId: 'sample-admin-user-id'
-    }
-  });
+const somitee = await prisma.somitee.upsert({
+  where: { id: 'sample-somitee-id' },
+  update: {
+    name: 'Somitee HQ Demo',
+    email: 'demo@somitee.dev',
+    phone: '+8801234567890',
+    status: 'active',
+    plan: 'basic'
+  },
+  create: {
+    id: 'sample-somitee-id',
+    name: 'Somitee HQ Demo',
+    email: 'demo@somitee.dev',
+    phone: '+8801234567890',
+    status: 'active',
+    plan: 'basic'
+  }
+});
+
+const adminUser = await prisma.user.upsert({
+  where: { email: 'admin@somitee.dev' },
+  update: {
+    name: 'Demo Admin',
+    password: password, // ✅ এখানে hashed password
+    role: 'main_user',
+    phone: '+8801234567890',
+    somiteeId: somitee.id
+  },
+  create: {
+    id: 'sample-admin-user-id',
+    name: 'Demo Admin',
+    email: 'admin@somitee.dev',
+    password: password, // ✅ এখানে same hashed password
+    role: 'main_user',
+    phone: '+8801234567890',
+    somiteeId: somitee.id,
+    userId: 'sample-admin-user-id'
+  }
+});
 
   await prisma.companySettings.upsert({
     where: { id: 'sample-company-settings-id' },
