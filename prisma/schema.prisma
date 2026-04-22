@@ -144,28 +144,67 @@ enum MemberStatus {
 
 model MemberRequest {
   id             String       @id @default(uuid())
-  name           String
-  shopName       String
-  mobile         String
-  address        String?
-  nid            String
-  monthlyFee     Int
-  billingCycle   String       @default("monthly")
+  memberId       String?      @unique @map("member_id")
   status         RequestStatus @default(pending)
+
+  // Personal Information
+  nameBn         String       @map("name_bn")
+  nameEn         String       @map("name_en")
+  fatherName     String       @map("father_name")
+  motherName     String       @map("mother_name")
+  dob            DateTime     @map("date_of_birth")
+  nationality    String
+  religion       String
+  bloodGroup     String       @map("blood_group")
+
+  // Contact Information
+  mobile         String
+  village        String?
+  wardNo         String?      @map("ward_no")
+  union          String?
+  upazila        String?
+  district       String?
+
+  // Business Information
+  shopName       String       @map("shop_name")
+
+  // Identification
+  nid            String       @unique
+
+  // Nominee Information
+  nomineeName    String       @map("nominee_name")
+  nomineeRelation String      @map("nominee_relation")
+  nomineeNid     String       @map("nominee_nid")
+
+  // Financial Information
+  monthlyFee     Int          @map("monthly_fee")
+  billingCycle   String       @default("monthly") @map("billing_cycle")
+
+  // Images
+  profileImageUrl String?     @map("profile_image_url")
+  nidFrontUrl     String?     @map("nid_front_url")
+  nidBackUrl      String?     @map("nid_back_url")
+  signatureUrl    String?     @map("signature_url")
+
+  // Metadata
   somiteeId      String       @map("somitee_id")
   somitee        Somitee      @relation(fields: [somiteeId], references: [id])
   userId         String       @map("user_id")
   createdBy User @relation("MemberRequestCreatedBy", fields: [userId], references: [id])
-  rejectionNote  String?
-  approvedAt     DateTime?
-  approvedBy     String?
-  rejectedAt     DateTime?
+
+  // Approval Information
+  rejectionNote  String?      @map("rejection_note")
+  approvedAt     DateTime?    @map("approved_at")
+  approvedBy     String?      @map("approved_by")
+  rejectedAt     DateTime?    @map("rejected_at")
+
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt     @map("updated_at")
-  
+
 
   @@index([somiteeId])
   @@index([somiteeId, createdAt])
+  @@index([somiteeId, status])
   @@map("member_requests")
 }
 
@@ -173,6 +212,7 @@ enum RequestStatus {
   pending
   approved
   rejected
+  draft
 }
 
 model Payment {
