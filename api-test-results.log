@@ -1,0 +1,121 @@
+[36m
+======================================================================[0m
+[36mAPI TESTING SUITE - BigInt Refactor Verification[0m
+[36m======================================================================
+[0m
+[34m
+📝 AUTH ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 1. POST /auth/register[0m
+[36m  → Token: eyJhbGciOiJIUzI1NiIs...[0m
+[36m  → User ID: 0efb6bc3-5272-4c20-b5ff-0e89c84438aa (should be string)[0m
+[32m✓ 2. POST /auth/login[0m
+[36m  → Token obtained: eyJhbGciOiJIUzI1NiIs...[0m
+[32m✓ 3. GET /auth/me[0m
+[32m✓ 4. POST /auth/refresh-token[0m
+[34m
+👥 MEMBERS ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 5. GET /members[0m
+[32m✓ 6. POST /members[0m
+[36m  → Created member with ID: da1e5f4a-a433-4fd8-baa2-64279fe90882[0m
+[32m✓ 7. GET /members/da1e5f4a-a433-4fd8-baa2-64279fe90882[0m
+[32m✓ 8. PUT /members/da1e5f4a-a433-4fd8-baa2-64279fe90882[0m
+[32m✓ 9. GET /members/da1e5f4a-a433-4fd8-baa2-64279fe90882/ledger[0m
+[32m✓ 10. GET /members/da1e5f4a-a433-4fd8-baa2-64279fe90882/payment-history[0m
+[34m
+🔐 USERS ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 11. GET /users[0m
+[34m
+⚙️  ROLES ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 12. GET /roles[0m
+[32m✓ 13. POST /roles[0m
+[36m  → Created role with ID: undefined[0m
+[32m✓ 14. GET /roles/me/permissions[0m
+[34m
+💳 PAYMENTS ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 15. GET /payments[0m
+[34m
+💰 EXPENSES ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 16. GET /expenses[0m
+[31m✗ 17. POST /expenses (expected 201, got 500)[0m
+[31m    Error: Internal server error[0m
+[34m
+🏦 BANK ACCOUNTS ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 18. GET /bank-accounts[0m
+[31m✗ 19. POST /bank-accounts (expected 201, got 500)[0m
+[31m    Error: Internal server error[0m
+[34m
+📥 COLLECTIONS ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 20. GET /collections[0m
+[34m
+📚 CASHBOOK ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 21. GET /cashbook[0m
+[32m✓ 22. GET /cashbook/summary[0m
+[34m
+📊 LEDGER ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 23. GET /ledger[0m
+[32m✓ 24. GET /ledger/summary[0m
+[34m
+📈 DASHBOARD ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 25. GET /dashboard/stats[0m
+[32m✓ 26. GET /dashboard/member-stats[0m
+[34m
+📋 REPORTS ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 27. GET /reports/income-vs-expense[0m
+[32m✓ 28. GET /reports/cash-flow[0m
+[32m✓ 29. GET /reports/member-dues[0m
+[32m✓ 30. GET /reports/bank-vs-cash[0m
+[34m
+❓ FAQ ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 31. GET /faq[0m
+[32m✓ 32. POST /faq[0m
+[32m✓ 33. PUT /faq/d3d001b1-4472-4d99-a73b-083ca74c489b[0m
+[31m✗ 34. DELETE /faq/d3d001b1-4472-4d99-a73b-083ca74c489b (expected 200, got 500)[0m
+[31m    Error: Internal server error[0m
+[34m
+🔔 NOTIFICATIONS ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 35. GET /notifications[0m
+[34m
+📝 ACTIVITY LOG ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 36. GET /activity-log[0m
+[34m
+🔍 SEARCH ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 37. GET /search?q=test[0m
+[34m
+⚙️  SETTINGS ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 38. GET /settings/profile[0m
+[34m
+🏢 COMPANY ENDPOINTS[0m
+[34m----------------------------------------------------------------------[0m
+[31m✗ 39. GET /company/settings (expected 200, got 404)[0m
+[31m    Error: Company settings not found[0m
+[34m
+🗑️  CLEANUP - DELETE OPERATIONS[0m
+[34m----------------------------------------------------------------------[0m
+[32m✓ 40. DELETE /members/da1e5f4a-a433-4fd8-baa2-64279fe90882[0m
+[36m
+======================================================================[0m
+[36mTEST SUMMARY[0m
+[36m======================================================================[0m
+[36mTotal Tests: 40[0m
+[32m✓ Passed: 36[0m
+[31m✗ Failed: 4[0m
+[31mSuccess Rate: 90.00%[0m
+[31m
+✗ Some tests failed. Please review the errors above.[0m

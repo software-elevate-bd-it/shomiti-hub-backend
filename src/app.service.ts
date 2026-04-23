@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import {Injectable} from '@nestjs/common';
 
 @Injectable()
 export class AppService {
@@ -7,7 +7,7 @@ export class AppService {
       success: true,
       statusCode: 200,
       message: 'SomiteeHQ API is healthy',
-      data: { uptime: process.uptime() }
+      data: {uptime: process.uptime()},
     };
   }
 }

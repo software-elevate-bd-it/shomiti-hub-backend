@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, IsBoolean } from 'class-validator';
+import {IsString, IsOptional, IsArray, IsBoolean} from 'class-validator';
 
 export class CreateRoleDto {
   @IsString()
@@ -10,7 +10,7 @@ export class CreateRoleDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @IsString({each: true})
   permissions?: string[];
 }
 
@@ -25,25 +25,25 @@ export class UpdateRoleDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @IsString({each: true})
   permissions?: string[];
 }
 
 export class AssignRoleDto {
   @IsString()
-  userId!: string;
+  userId!: number;
 
   @IsString()
   userName!: string;
 
   @IsString()
-  roleId!: string;
+  roleId!: number;
 }
 
 export class RemoveRoleDto {
   @IsString()
-  userId!: string;
+  userId!: number;
 
   @IsString()
-  roleId!: string;
+  roleId!: number;
 }

@@ -6,53 +6,98 @@ datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
 }
+
 model User {
-  id         String   @id @default(uuid())
-  name       String
-  email      String   @unique
-  password   String
-  role       UserRole @default(main_user)
-  phone      String?
+  id       BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  name     String
+  email    String   @unique
+  password String
+  role     UserRole @default(main_user)
+  phone    String?
 
-  somiteeId  String?  @map("somitee_id")
-  somitee    Somitee? @relation("UserSomitee", fields: [somiteeId], references: [id])
+  somiteeId BigInt?  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee? @relation("UserSomitee", fields: [somiteeId], references: [id], onDelete: SetNull)
 
-  userId     String?  @map("user_id")
-  createdBy  User?    @relation("UserCreatedBy", fields: [userId], references: [id])
-  createdUsers User[] @relation("UserCreatedBy")
+  createdById  BigInt? @map("created_by_id") @db.UnsignedBigInt
+  createdBy    User?   @relation("UserCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdUsers User[]  @relation("UserCreatedBy")
+
+  updatedById  BigInt? @map("updated_by_id") @db.UnsignedBigInt
+  updatedBy    User?   @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedUsers User[]  @relation("UserUpdatedBy")
+
+  // Managed user relations
   createdSomitees Somitee[] @relation("SomiteeCreatedBy")
+  updatedSomitees Somitee[] @relation("SomiteeUpdatedBy")
+
+  // Member relations
+  memberCreated Member[] @relation("MemberCreatedBy")
+  memberUpdated Member[] @relation("MemberUpdatedBy")
+
+  // MemberRequest relations
+  memberRequests        MemberRequest[] @relation("MemberRequestCreatedBy")
+  memberRequestsUpdated MemberRequest[] @relation("MemberRequestUpdatedBy")
+
+  // Payment relations
+  paymentsCreated Payment[] @relation("PaymentCreatedBy")
+  paymentsUpdated Payment[] @relation("PaymentUpdatedBy")
+
+  // PaymentItem relations
+  paymentItemsCreated PaymentItem[] @relation("PaymentItemCreatedBy")
+  paymentItemsUpdated PaymentItem[] @relation("PaymentItemUpdatedBy")
+
+  // Transaction relations
+  transactionsCreated Transaction[] @relation("TransactionCreatedBy")
+  transactionsUpdated Transaction[] @relation("TransactionUpdatedBy")
+
+  // Expense relations
+  expensesCreated Expense[] @relation("ExpenseCreatedBy")
+  expensesUpdated Expense[] @relation("ExpenseUpdatedBy")
+
+  // CashBook relations
+  cashEntriesCreated CashBookEntry[] @relation("CashBookCreatedBy")
+  cashEntriesUpdated CashBookEntry[] @relation("CashBookUpdatedBy")
+
+  // BankAccount relations
+  bankAccountsCreated BankAccount[] @relation("BankAccountCreatedBy")
+  bankAccountsUpdated BankAccount[] @relation("BankAccountUpdatedBy")
+
+  // BankTransaction relations
+  bankTxCreated BankTransaction[] @relation("BankTransactionCreatedBy")
+  bankTxUpdated BankTransaction[] @relation("BankTransactionUpdatedBy")
+
+  // Stats relations
+  statsCreated StatsSummary[] @relation("StatsCreatedBy")
+  statsUpdated StatsSummary[] @relation("StatsUpdatedBy")
+
+  // Ledger relations
+  ledgerCreated LedgerEntry[] @relation("LedgerCreatedBy")
+  ledgerUpdated LedgerEntry[] @relation("LedgerUpdatedBy")
+
+  // Approval relations
+  approvalsCreated  Approval[] @relation("ApprovalCreatedBy")
+  approvalsReviewed Approval[] @relation("ApprovalReviewedBy")
+
+  // Role assignment relations
+  roleAssignments UserRoleAssignment[] @relation("UserRoleAssignments")
+
+  // SMS Config relation
+  smsConfigs SmsConfig[] @relation("SmsConfigCreatedBy")
 
   // New fields for managed users
-  roleIds    Json     @default("[]") @map("role_ids")
-  status     UserStatus @default(active)
-  isManaged  Boolean  @default(false) @map("is_managed")
+  roleIds   Json       @default("[]") @map("role_ids")
+  status    UserStatus @default(active)
+  isManaged Boolean    @default(false) @map("is_managed")
 
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([somiteeId])
+  @@index([createdById])
+  @@index([updatedById])
   @@index([createdAt])
   @@map("users")
-
-
-    memberCreated       Member[]        @relation("MemberCreatedBy")
-    memberRequests      MemberRequest[] @relation("MemberRequestCreatedBy")
-    paymentsCreated     Payment[]       @relation("PaymentCreatedBy")
-    paymentItemsCreated PaymentItem[]   @relation("PaymentItemCreatedBy")
-    transactionsCreated Transaction[]   @relation("TransactionCreatedBy")
-    expensesCreated     Expense[]       @relation("ExpenseCreatedBy")
-    cashEntriesCreated  CashBookEntry[] @relation("CashBookCreatedBy")
-    bankAccountsCreated BankAccount[]   @relation("BankAccountCreatedBy")
-    bankTxCreated       BankTransaction[] @relation("BankTransactionCreatedBy")
-    statsCreated        StatsSummary[]  @relation("StatsCreatedBy")
-    ledgerCreated       LedgerEntry[]   @relation("LedgerCreatedBy")
-
-    // New relations
-    approvalsCreated    Approval[]      @relation("ApprovalCreatedBy")
-    approvalsReviewed   Approval[]      @relation("ApprovalReviewedBy")
-    roleAssignments     UserRoleAssignment[] @relation("UserRoleAssignments")
 }
-
 
 enum UserRole {
   super_admin
@@ -66,36 +111,46 @@ enum UserStatus {
 }
 
 model Somitee {
-  id           String   @id @default(uuid())
-  name         String
-  email        String
-  phone        String
-  status       SomiteeStatus @default(active)
-  plan         String   @default("basic")
+  id            BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  name          String
+  email         String
+  phone         String
+  status        SomiteeStatus @default(active)
+  plan          String        @default("basic")
   blockedReason String?
-  somiteeId    String?  @map("somitee_id")
-  userId       String?  @map("user_id")
-  createdBy    User?    @relation("SomiteeCreatedBy", fields: [userId], references: [id])
-  members      Member[]
-  requests     MemberRequest[]
-  payments      Payment[]
-  transactions  Transaction[]
-  expenses      Expense[]
-  bankAccounts  BankAccount[]
-  paymentItems  PaymentItem[]
-  cashBookEntries CashBookEntry[]
+
+  createdById BigInt? @map("created_by_id") @db.UnsignedBigInt
+  createdBy   User?   @relation("SomiteeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  updatedById BigInt? @map("updated_by_id") @db.UnsignedBigInt
+  updatedBy   User?   @relation("SomiteeUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  // Relations
+  members          Member[]
+  requests         MemberRequest[]
+  payments         Payment[]
+  transactions     Transaction[]
+  expenses         Expense[]
+  bankAccounts     BankAccount[]
+  paymentItems     PaymentItem[]
+  cashBookEntries  CashBookEntry[]
   bankTransactions BankTransaction[]
-  ledgerEntries LedgerEntry[]
-  statsSummaries StatsSummary[]
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt     @map("updated_at")
+  ledgerEntries    LedgerEntry[]
+  statsSummaries   StatsSummary[]
+  users            User[]            @relation("UserSomitee")
+  roles            Role[]
+  approvals        Approval[]
+  smsTemplates     SmsTemplate[]
+  smsHistories     SmsHistory[]
+  notifications    Notification[]
+  activityLogs     ActivityLog[]
+  companySettings  CompanySettings[]
 
-  users        User[]   @relation("UserSomitee")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  // New relations
-  roles        Role[]
-  approvals    Approval[]
-
+  @@index([createdById])
+  @@index([updatedById])
   @@index([createdAt])
   @@map("somitees")
 }
@@ -106,34 +161,42 @@ enum SomiteeStatus {
 }
 
 model Member {
-  id           String      @id @default(uuid())
-  name         String
-  shopName     String
-  phone        String
-  address      String?
-  nid          String
-  status       MemberStatus @default(active)
-  somiteeId    String      @map("somitee_id")
-  somitee      Somitee     @relation(fields: [somiteeId], references: [id])
-  userId       String      @map("user_id")
-  createdBy User @relation("MemberCreatedBy", fields: [userId], references: [id])
+  id       BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  name     String
+  shopName String       @map("shop_name")
+  phone    String
+  address  String?
+  nid      String       @unique
+  status   MemberStatus @default(active)
+
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+
+  createdById BigInt @map("created_by_id") @db.UnsignedBigInt
+  createdBy   User   @relation("MemberCreatedBy", fields: [createdById], references: [id])
+
+  updatedById BigInt? @map("updated_by_id") @db.UnsignedBigInt
+  updatedBy   User?   @relation("MemberUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
   monthlyFee   Int
-  billingCycle String      @default("monthly")
-  totalDue     Int         @default(0)
-  totalPaid    Int         @default(0)
-  joinDate     DateTime    @default(now()) @map("join_date")
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt     @map("updated_at")
-  payments     Payment[]
-  paymentItems PaymentItem[]
+  billingCycle String   @default("monthly") @map("billing_cycle")
+  totalDue     Int      @default(0) @map("total_due")
+  totalPaid    Int      @default(0) @map("total_paid")
+  joinDate     DateTime @default(now()) @map("join_date")
+
+  // Relations
+  payments      Payment[]
+  paymentItems  PaymentItem[]
   transactions  Transaction[]
   ledgerEntries LedgerEntry[]
 
-  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([somiteeId])
-  @@index([somiteeId, id])
-  @@index([somiteeId, createdAt])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([somiteeId, status])
   @@map("members")
 }
 
@@ -143,67 +206,71 @@ enum MemberStatus {
 }
 
 model MemberRequest {
-  id             String       @id @default(uuid())
-  memberId       String?      @unique @map("member_id")
-  status         RequestStatus @default(pending)
+  id       BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  memberId BigInt?       @unique @map("member_id") @db.UnsignedBigInt
+  status   RequestStatus @default(pending)
 
   // Personal Information
-  nameBn         String       @map("name_bn")
-  nameEn         String       @map("name_en")
-  fatherName     String       @map("father_name")
-  motherName     String       @map("mother_name")
-  dob            DateTime     @map("date_of_birth")
-  nationality    String
-  religion       String
-  bloodGroup     String       @map("blood_group")
+  nameBn      String   @map("name_bn")
+  nameEn      String   @map("name_en")
+  fatherName  String   @map("father_name")
+  motherName  String   @map("mother_name")
+  dob         DateTime @map("date_of_birth")
+  nationality String
+  religion    String
+  bloodGroup  String   @map("blood_group")
 
   // Contact Information
-  mobile         String
-  village        String?
-  wardNo         String?      @map("ward_no")
-  union          String?
-  upazila        String?
-  district       String?
+  mobile   String
+  village  String?
+  wardNo   String? @map("ward_no")
+  union    String?
+  upazila  String?
+  district String?
 
   // Business Information
-  shopName       String       @map("shop_name")
+  shopName String @map("shop_name")
 
   // Identification
-  nid            String       @unique
+  nid String @unique
 
   // Nominee Information
-  nomineeName    String       @map("nominee_name")
-  nomineeRelation String      @map("nominee_relation")
-  nomineeNid     String       @map("nominee_nid")
+  nomineeName     String @map("nominee_name")
+  nomineeRelation String @map("nominee_relation")
+  nomineeNid      String @map("nominee_nid")
 
   // Financial Information
-  monthlyFee     Int          @map("monthly_fee")
-  billingCycle   String       @default("monthly") @map("billing_cycle")
+  monthlyFee   Int    @map("monthly_fee")
+  billingCycle String @default("monthly") @map("billing_cycle")
 
   // Images
-  profileImageUrl String?     @map("profile_image_url")
-  nidFrontUrl     String?     @map("nid_front_url")
-  nidBackUrl      String?     @map("nid_back_url")
-  signatureUrl    String?     @map("signature_url")
+  profileImageUrl String? @map("profile_image_url")
+  nidFrontUrl     String? @map("nid_front_url")
+  nidBackUrl      String? @map("nid_back_url")
+  signatureUrl    String? @map("signature_url")
 
   // Metadata
-  somiteeId      String       @map("somitee_id")
-  somitee        Somitee      @relation(fields: [somiteeId], references: [id])
-  userId         String       @map("user_id")
-  createdBy User @relation("MemberRequestCreatedBy", fields: [userId], references: [id])
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+
+  createdById BigInt @map("created_by_id") @db.UnsignedBigInt
+  createdBy   User   @relation("MemberRequestCreatedBy", fields: [createdById], references: [id])
+
+  updatedById BigInt? @map("updated_by_id") @db.UnsignedBigInt
+  updatedBy   User?   @relation("MemberRequestUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   // Approval Information
-  rejectionNote  String?      @map("rejection_note")
-  approvedAt     DateTime?    @map("approved_at")
-  approvedBy     String?      @map("approved_by")
-  rejectedAt     DateTime?    @map("rejected_at")
+  rejectionNote String?   @map("rejection_note")
+  approvedAt    DateTime? @map("approved_at")
+  approvedBy    BigInt?   @map("approved_by") @db.UnsignedBigInt
+  rejectedAt    DateTime? @map("rejected_at")
 
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt     @map("updated_at")
-
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([somiteeId])
-  @@index([somiteeId, createdAt])
+  @@index([createdById])
+  @@index([updatedById])
   @@index([somiteeId, status])
   @@map("member_requests")
 }
@@ -216,27 +283,36 @@ enum RequestStatus {
 }
 
 model Payment {
-  id             String        @id @default(uuid())
-  memberId       String        @map("member_id")
-  member         Member        @relation(fields: [memberId], references: [id])
-  amount         Int
-  paymentDate    DateTime      @map("payment_date")
-  method         String
-  status         String        @default("pending")
-  category       String?
-  transactionId  String?       @map("transaction_id")
-  note           String?
-  verifiedAt     DateTime?     @map("verified_at")
-  financialYear  String?       @map("financial_year")
-  somiteeId      String        @map("somitee_id")
-  somitee        Somitee       @relation(fields: [somiteeId], references: [id])
-  userId         String        @map("user_id")
-  createdBy User @relation("PaymentCreatedBy", fields: [userId], references: [id])
-  paymentItems   PaymentItem[]
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt     @map("updated_at")
+  id            BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  memberId      BigInt    @map("member_id") @db.UnsignedBigInt
+  member        Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  amount        Int
+  paymentDate   DateTime  @map("payment_date")
+  method        String
+  status        String    @default("pending")
+  category      String?
+  transactionId String?   @map("transaction_id")
+  note          String?
+  verifiedAt    DateTime? @map("verified_at")
+  financialYear String?   @map("financial_year")
+
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+
+  createdById BigInt @map("created_by_id") @db.UnsignedBigInt
+  createdBy   User   @relation("PaymentCreatedBy", fields: [createdById], references: [id])
+
+  updatedById BigInt? @map("updated_by_id") @db.UnsignedBigInt
+  updatedBy   User?   @relation("PaymentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  paymentItems PaymentItem[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([somiteeId])
+  @@index([createdById])
+  @@index([updatedById])
   @@index([somiteeId, memberId])
   @@index([somiteeId, paymentDate])
   @@index([somiteeId, financialYear])
@@ -244,33 +320,41 @@ model Payment {
 }
 
 model PaymentItem {
-  id             String   @id @default(uuid())
-  paymentId      String   @map("payment_id")
-  payment        Payment  @relation(fields: [paymentId], references: [id])
-  memberId       String   @map("member_id")
-  member         Member   @relation(fields: [memberId], references: [id])
-  month          Int
-  financialYear  String   @map("financial_year")
-  amount         Int
-  somiteeId      String   @map("somitee_id")
-  somitee        Somitee  @relation(fields: [somiteeId], references: [id])
-  userId         String   @map("user_id")
-  createdBy User @relation("PaymentItemCreatedBy", fields: [userId], references: [id])
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt     @map("updated_at")
+  id            BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
+  paymentId     BigInt  @map("payment_id") @db.UnsignedBigInt
+  payment       Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  memberId      BigInt  @map("member_id") @db.UnsignedBigInt
+  member        Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  month         Int
+  financialYear String  @map("financial_year")
+  amount        Int
+
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+
+  createdById BigInt @map("created_by_id") @db.UnsignedBigInt
+  createdBy   User   @relation("PaymentItemCreatedBy", fields: [createdById], references: [id])
+
+  updatedById BigInt? @map("updated_by_id") @db.UnsignedBigInt
+  updatedBy   User?   @relation("PaymentItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([memberId, month, financialYear])
   @@index([somiteeId])
+  @@index([createdById])
+  @@index([updatedById])
   @@index([somiteeId, memberId])
   @@index([somiteeId, financialYear])
   @@map("payment_items")
 }
 
 model Transaction {
-  id            String    @id @default(uuid())
-  memberId      String?   @map("member_id")
-  member        Member?   @relation(fields: [memberId], references: [id])
-  memberName    String?
+  id            BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  memberId      BigInt?   @map("member_id") @db.UnsignedBigInt
+  member        Member?   @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  memberName    String?   @map("member_name")
   type          String
   amount        Int
   date          DateTime
@@ -280,77 +364,104 @@ model Transaction {
   transactionId String?   @map("transaction_id")
   note          String?
   approvedAt    DateTime?
-  somiteeId     String    @map("somitee_id")
-  somitee       Somitee   @relation(fields: [somiteeId], references: [id])
-  userId        String    @map("user_id")
-  createdBy User @relation("TransactionCreatedBy", fields: [userId], references: [id])
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt     @map("updated_at")
+
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+
+  createdById BigInt @map("created_by_id") @db.UnsignedBigInt
+  createdBy   User   @relation("TransactionCreatedBy", fields: [createdById], references: [id])
+
+  updatedById BigInt? @map("updated_by_id") @db.UnsignedBigInt
+  updatedBy   User?   @relation("TransactionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([somiteeId])
+  @@index([createdById])
+  @@index([updatedById])
   @@index([somiteeId, memberId])
   @@index([somiteeId, date])
   @@map("transactions")
 }
 
 model Expense {
-  id          String   @id @default(uuid())
-  amount      Int
-  date        DateTime
-  category    String
-  method      String
-  note        String?
-  receiptUrl  String?  @map("receipt_url")
-  status      String   @default("approved")
-  somiteeId   String   @map("somitee_id")
-  somitee     Somitee  @relation(fields: [somiteeId], references: [id])
-  userId      String   @map("user_id")
-  createdBy User @relation("ExpenseCreatedBy", fields: [userId], references: [id])
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt     @map("updated_at")
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  amount     Int
+  date       DateTime
+  category   String
+  method     String
+  note       String?
+  receiptUrl String?  @map("receipt_url")
+  status     String   @default("approved")
+
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+
+  createdById BigInt @map("created_by_id") @db.UnsignedBigInt
+  createdBy   User   @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+
+  updatedById BigInt? @map("updated_by_id") @db.UnsignedBigInt
+  updatedBy   User?   @relation("ExpenseUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([somiteeId])
+  @@index([createdById])
+  @@index([updatedById])
   @@index([somiteeId, createdAt])
   @@map("expenses")
 }
 
 model CashBookEntry {
-  id            String    @id @default(uuid())
+  id            BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
   date          DateTime
   description   String
   cashIn        Int
   cashOut       Int
   balance       Int
-  referenceType String?
-  referenceId   String?
-  somiteeId     String   @map("somitee_id")
-  somitee       Somitee  @relation(fields: [somiteeId], references: [id])
-  userId        String   @map("user_id")
-  createdBy User @relation("CashBookCreatedBy", fields: [userId], references: [id])
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  referenceType String?  @map("reference_type")
+  referenceId   String?  @map("reference_id")
+
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+
+  createdById BigInt @map("created_by_id") @db.UnsignedBigInt
+  createdBy   User   @relation("CashBookCreatedBy", fields: [createdById], references: [id])
+
+  updatedById BigInt? @map("updated_by_id") @db.UnsignedBigInt
+  updatedBy   User?   @relation("CashBookUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([somiteeId])
+  @@index([createdById])
+  @@index([updatedById])
   @@index([somiteeId, date])
   @@map("cash_book_entries")
 }
 
 model SmsTemplate {
-  id        String   @id @default(uuid())
+  id        BigInt @id @default(autoincrement()) @db.UnsignedBigInt
   name      String
-  body      String
+  body      String @db.LongText
   variables Json
   type      String
-  somiteeId String   @map("somitee_id")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([somiteeId])
   @@map("sms_templates")
 }
 
 model SmsHistory {
-  id         String   @id @default(uuid())
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
   date       DateTime @default(now())
   template   String?
   recipients Int
@@ -358,165 +469,221 @@ model SmsHistory {
   failed     Int
   cost       Float?
   details    Json?
-  somiteeId  String   @map("somitee_id")
+
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
 
   @@index([somiteeId])
+  @@index([somiteeId, date])
   @@map("sms_history")
 }
 
 model SmsConfig {
-  id                 String   @id
-  provider           String
-  apiKey             String
-  senderId           String
-  autoSendOnPayment  Boolean  @default(false)
-  autoSendDueReminder Boolean @default(false)
-  reminderDayOfMonth Int?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                  BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
+  provider            String
+  apiKey              String  @map("api_key")
+  senderId            String  @map("sender_id")
+  autoSendOnPayment   Boolean @default(false) @map("auto_send_on_payment")
+  autoSendDueReminder Boolean @default(false) @map("auto_send_due_reminder")
+  reminderDayOfMonth  Int?    @map("reminder_day_of_month")
+
+  createdById BigInt @map("created_by_id") @db.UnsignedBigInt
+  createdBy   User   @relation("SmsConfigCreatedBy", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([createdById])
   @@map("sms_configs")
 }
 
 model CompanySettings {
-  id         String   @id @default(uuid())
-  somiteeId  String   @unique @map("somitee_id")
-  name       String
-  logo       String?
-  signature  String?
-  address    String?
-  phone      String?
-  email      String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
+  somiteeId BigInt  @unique @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+  name      String
+  logo      String?
+  signature String?
+  address   String?
+  phone     String?
+  email     String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([somiteeId])
   @@map("company_settings")
 }
 
 model PrintTemplate {
-  id              String   @id
-  showLogo        Boolean  @default(true)
-  showCompanyName Boolean  @default(true)
-  showSignature   Boolean  @default(true)
-  showFooterNotes Boolean  @default(true)
-  footerNotes     String?
-  marginTop       Int      @default(20)
-  marginBottom    Int      @default(20)
-  marginLeft      Int      @default(15)
-  marginRight     Int      @default(15)
-  paperSize       String   @default("A4")
-  orientation     String   @default("portrait")
-  updatedAt       DateTime @updatedAt
+  id              BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
+  showLogo        Boolean @default(true) @map("show_logo")
+  showCompanyName Boolean @default(true) @map("show_company_name")
+  showSignature   Boolean @default(true) @map("show_signature")
+  showFooterNotes Boolean @default(true) @map("show_footer_notes")
+  footerNotes     String? @map("footer_notes")
+  marginTop       Int     @default(20) @map("margin_top")
+  marginBottom    Int     @default(20) @map("margin_bottom")
+  marginLeft      Int     @default(15) @map("margin_left")
+  marginRight     Int     @default(15) @map("margin_right")
+  paperSize       String  @default("A4") @map("paper_size")
+  orientation     String  @default("portrait")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   @@map("print_templates")
 }
 
 model Faq {
-  id        String   @id @default(uuid())
-  question  String
-  answer    String
-  category  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id       BigInt @id @default(autoincrement()) @db.UnsignedBigInt
+  question String
+  answer   String @db.LongText
+  category String
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
   @@map("faqs")
 }
 
 model Notification {
-  id        String   @id @default(uuid())
+  id        BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
   type      String
   title     String
-  message   String
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
-  actionUrl String?
-  somiteeId String   @map("somitee_id")
+  message   String  @db.LongText
+  read      Boolean @default(false)
+  actionUrl String? @map("action_url")
+
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([somiteeId])
+  @@index([somiteeId, read])
+  @@index([somiteeId, createdAt])
   @@map("notifications")
 }
 
 model ActivityLog {
-  id          String   @id @default(uuid())
-  userId      String
-  userName    String
+  id          BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
+  userId      BigInt  @map("user_id") @db.UnsignedBigInt
+  userName    String  @map("user_name")
   action      String
-  description String
+  description String  @db.LongText
   metadata    Json?
-  ipAddress   String?
-  somiteeId   String   @map("somitee_id")
-  createdAt   DateTime @default(now())
+  ipAddress   String? @map("ip_address")
+
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([somiteeId])
+  @@index([userId])
+  @@index([somiteeId, createdAt])
   @@map("activity_logs")
 }
 
 model SubscriptionPlan {
-  id         String   @id
+  id         BigInt @id @default(autoincrement()) @db.UnsignedBigInt
   name       String
   price      Int
-  maxMembers Int
+  maxMembers Int    @map("max_members")
   features   Json
   status     String
+
+  @@index([status])
   @@map("subscription_plans")
 }
 
 model BankAccount {
-  id             String            @id @default(uuid())
-  bankName       String            @map("bank_name")
-  accountName    String            @map("account_name")
-  accountNumber  String            @map("account_number")
+  id             BigInt @id @default(autoincrement()) @db.UnsignedBigInt
+  bankName       String @map("bank_name")
+  accountName    String @map("account_name")
+  accountNumber  String @map("account_number")
   balance        Int
-  openingBalance Int               @map("opening_balance")
-  somiteeId      String            @map("somitee_id")
-  somitee        Somitee           @relation(fields: [somiteeId], references: [id])
-  userId         String            @map("user_id")
-createdBy User @relation("BankAccountCreatedBy", fields: [userId], references: [id])
-  transactions   BankTransaction[]
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt     @map("updated_at")
+  openingBalance Int    @map("opening_balance")
+
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+
+  createdById BigInt @map("created_by_id") @db.UnsignedBigInt
+  createdBy   User   @relation("BankAccountCreatedBy", fields: [createdById], references: [id])
+
+  updatedById BigInt? @map("updated_by_id") @db.UnsignedBigInt
+  updatedBy   User?   @relation("BankAccountUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  transactions BankTransaction[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([somiteeId])
+  @@index([createdById])
+  @@index([updatedById])
   @@index([somiteeId, createdAt])
   @@map("bank_accounts")
 }
 
 model BankTransaction {
-  id             String      @id @default(uuid())
-  bankAccountId  String      @map("bank_account_id")
-  bankAccount    BankAccount @relation(fields: [bankAccountId], references: [id])
-  type           String
-  amount         Int
-  date           DateTime
-  note           String?
-  reference      String?
-  balanceAfter   Int         @map("balance_after")
-  somiteeId      String      @map("somitee_id")
-  somitee        Somitee     @relation(fields: [somiteeId], references: [id])
-  userId         String      @map("user_id")
-  createdBy User @relation("BankTransactionCreatedBy", fields: [userId], references: [id])
-  createdAt      DateTime    @default(now()) @map("created_at")
-  updatedAt      DateTime    @updatedAt     @map("updated_at")
+  id            BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  bankAccountId BigInt      @map("bank_account_id") @db.UnsignedBigInt
+  bankAccount   BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  type          String
+  amount        Int
+  date          DateTime
+  note          String?
+  reference     String?
+  balanceAfter  Int         @map("balance_after")
+
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+
+  createdById BigInt @map("created_by_id") @db.UnsignedBigInt
+  createdBy   User   @relation("BankTransactionCreatedBy", fields: [createdById], references: [id])
+
+  updatedById BigInt? @map("updated_by_id") @db.UnsignedBigInt
+  updatedBy   User?   @relation("BankTransactionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([somiteeId])
+  @@index([createdById])
+  @@index([updatedById])
   @@index([somiteeId, bankAccountId])
   @@index([somiteeId, date])
   @@map("bank_transactions")
 }
 
 model StatsSummary {
-  id              String   @id @default(uuid())
+  id              BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
   date            DateTime
   totalCollection Int      @map("total_collection")
   totalExpense    Int      @map("total_expense")
   totalDue        Int      @map("total_due")
-  somiteeId       String   @map("somitee_id")
-  somitee         Somitee  @relation(fields: [somiteeId], references: [id])
-  periodType      StatsPeriodType @default(daily)
-  userId          String          @map("user_id")
-  createdBy User @relation("StatsCreatedBy", fields: [userId], references: [id])
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt     @map("updated_at")
 
-  @@index([somiteeId])
-  @@index([somiteeId, date])
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+
+  periodType StatsPeriodType @default(daily) @map("period_type")
+
+  createdById BigInt @map("created_by_id") @db.UnsignedBigInt
+  createdBy   User   @relation("StatsCreatedBy", fields: [createdById], references: [id])
+
+  updatedById BigInt? @map("updated_by_id") @db.UnsignedBigInt
+  updatedBy   User?   @relation("StatsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   @@unique([somiteeId, date, periodType])
+  @@index([somiteeId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([somiteeId, date])
   @@map("stats_summaries")
 }
 
@@ -526,44 +693,51 @@ enum StatsPeriodType {
 }
 
 model LedgerEntry {
-  id            String    @id @default(uuid())
+  id            BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
   date          DateTime
   description   String
   type          String
   debit         Int?
   credit        Int?
   balance       Int
-  referenceType String?   @map("reference_type")
-  referenceId   String?   @map("reference_id")
-  memberId      String?   @map("member_id")
-  memberName    String?   @map("member_name")
-  somiteeId     String    @map("somitee_id")
-  somitee       Somitee   @relation(fields: [somiteeId], references: [id])
-  userId        String    @map("user_id")
-  createdBy User @relation("LedgerCreatedBy", fields: [userId], references: [id])
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt     @map("updated_at")
+  referenceType String?  @map("reference_type")
+  referenceId   String?  @map("reference_id")
+  memberId      BigInt?  @map("member_id") @db.UnsignedBigInt
+  member        Member?  @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  memberName    String?  @map("member_name")
 
-  member        Member?   @relation(fields: [memberId], references: [id])
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+
+  createdById BigInt @map("created_by_id") @db.UnsignedBigInt
+  createdBy   User   @relation("LedgerCreatedBy", fields: [createdById], references: [id])
+
+  updatedById BigInt? @map("updated_by_id") @db.UnsignedBigInt
+  updatedBy   User?   @relation("LedgerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([somiteeId])
+  @@index([createdById])
+  @@index([updatedById])
   @@index([somiteeId, memberId])
   @@index([somiteeId, createdAt])
   @@map("ledger_entries")
 }
 
-// New models for Roles & Permissions, Approvals, and Managed Users
-
 model Role {
-  id          String   @id @default(cuid())
+  id          BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
   name        String
   description String?
-  permissions Json     @default("[]")
-  isPreset    Boolean  @default(false) @map("is_preset")
-  somiteeId   String?  @map("somitee_id")
-  somitee     Somitee? @relation(fields: [somiteeId], references: [id])
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  permissions Json    @default("[]")
+  isPreset    Boolean @default(false) @map("is_preset")
+
+  somiteeId BigInt?  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee? @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   assignments UserRoleAssignment[]
 
@@ -573,11 +747,11 @@ model Role {
 }
 
 model UserRoleAssignment {
-  id       String @id @default(cuid())
-  userId   String @map("user_id")
-  user     User   @relation("UserRoleAssignments", fields: [userId], references: [id])
-  roleId   String @map("role_id")
-  role     Role   @relation(fields: [roleId], references: [id])
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  userId     BigInt   @map("user_id") @db.UnsignedBigInt
+  user       User     @relation("UserRoleAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  roleId     BigInt   @map("role_id") @db.UnsignedBigInt
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
   assignedAt DateTime @default(now()) @map("assigned_at")
 
   @@unique([userId, roleId])
@@ -587,28 +761,34 @@ model UserRoleAssignment {
 }
 
 model Approval {
-  id            String      @id @default(cuid())
-  type          ApprovalType
-  title         String
-  amount        Int?
-  description   String?
-  status        ApprovalStatus @default(pending)
-  payload       Json
-  createdById   String      @map("created_by_id")
-  createdBy     User        @relation("ApprovalCreatedBy", fields: [createdById], references: [id])
-  createdByName String      @map("created_by_name")
-  reviewedById  String?     @map("reviewed_by_id")
-  reviewedBy    User?       @relation("ApprovalReviewedBy", fields: [reviewedById], references: [id])
-  reviewedByName String?    @map("reviewed_by_name")
-  reviewedAt    DateTime?   @map("reviewed_at")
-  rejectionNote String?     @map("rejection_note")
+  id          BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  type        ApprovalType
+  title       String
+  amount      Int?
+  description String?        @db.LongText
+  status      ApprovalStatus @default(pending)
+  payload     Json
+
+  createdById   BigInt @map("created_by_id") @db.UnsignedBigInt
+  createdBy     User   @relation("ApprovalCreatedBy", fields: [createdById], references: [id])
+  createdByName String @map("created_by_name")
+
+  reviewedById    BigInt?   @map("reviewed_by_id") @db.UnsignedBigInt
+  reviewedBy      User?     @relation("ApprovalReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedByName  String?   @map("reviewed_by_name")
+  reviewedAt      DateTime? @map("reviewed_at")
+  rejectionNote   String?   @map("rejection_note")
   createdRecordId String?   @map("created_record_id")
-  somiteeId     String      @map("somitee_id")
-  somitee       Somitee     @relation(fields: [somiteeId], references: [id])
-  createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([somiteeId])
+  @@index([createdById])
+  @@index([reviewedById])
   @@index([somiteeId, status])
   @@index([somiteeId, type])
   @@index([somiteeId, createdAt])
@@ -627,4 +807,3 @@ enum ApprovalStatus {
   approved
   rejected
 }
-

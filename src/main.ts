@@ -1,18 +1,18 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import {NestFactory} from '@nestjs/core';
+import {AppModule} from './app.module';
+import {ValidationPipe} from '@nestjs/common';
 import helmet from 'helmet';
 import compression = require('compression');
 import rateLimit from 'express-rate-limit';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-import { TransformInterceptor } from './common/interceptors/transform.interceptor';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import {HttpExceptionFilter} from './common/filters/http-exception.filter';
+import {TransformInterceptor} from './common/interceptors/transform.interceptor';
+import {SwaggerModule, DocumentBuilder} from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix('api');
-  app.enableCors({ origin: true, credentials: true });
+  app.enableCors({origin: true, credentials: true});
   app.use(helmet());
   app.use(compression());
   app.use(
@@ -20,8 +20,8 @@ async function bootstrap() {
       windowMs: 60_000,
       max: 100,
       standardHeaders: true,
-      legacyHeaders: false
-    })
+      legacyHeaders: false,
+    }),
   );
 
   const swaggerConfig = new DocumentBuilder()
@@ -41,16 +41,16 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document, {
     swaggerOptions: {
-      persistAuthorization: true
-    }
+      persistAuthorization: true,
+    },
   });
 
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
-      transform: true
-    })
+      transform: true,
+    }),
   );
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor());

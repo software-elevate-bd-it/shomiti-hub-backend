@@ -1,10 +1,21 @@
-import { Controller, Get, Post, Put, Delete, Patch, Param, Body, Query, UseGuards } from '@nestjs/common';
-import { UsersService } from './users.service';
-import { CreateUserDto, UpdateUserDto } from './dto/users.dto';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { CurrentUser } from '../../common/decorators/user.decorator';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Patch,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {UsersService} from './users.service';
+import {CreateUserDto, UpdateUserDto} from './dto/users.dto';
+import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
+import {RolesGuard} from '../../common/guards/roles.guard';
+import {Roles} from '../../common/decorators/roles.decorator';
+import {CurrentUser} from '../../common/decorators/user.decorator';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -26,7 +37,7 @@ export class UsersController {
 
   @Get(':id')
   @Roles('users.manage')
-  async getUser(@Param('id') id: string, @CurrentUser() user: any) {
+  async getUser(@Param('id') id: number, @CurrentUser() user: any) {
     const userData = await this.usersService.getUser(id, user.somiteeId);
     return {
       success: true,
@@ -50,7 +61,7 @@ export class UsersController {
 
   @Put(':id')
   @Roles('users.manage')
-  async updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto, @CurrentUser() user: any) {
+  async updateUser(@Param('id') id: number, @Body() dto: UpdateUserDto, @CurrentUser() user: any) {
     const updatedUser = await this.usersService.updateUser(id, dto, user.somiteeId);
     return {
       success: true,
@@ -62,8 +73,16 @@ export class UsersController {
 
   @Patch(':id/status')
   @Roles('users.manage')
-  async updateUserStatus(@Param('id') id: string, @Body() body: { status: 'active' | 'inactive' }, @CurrentUser() user: any) {
-    const updatedUser = await this.usersService.updateUser(id, { status: body.status }, user.somiteeId);
+  async updateUserStatus(
+    @Param('id') id: number,
+    @Body() body: {status: 'active' | 'inactive'},
+    @CurrentUser() user: any,
+  ) {
+    const updatedUser = await this.usersService.updateUser(
+      id,
+      {status: body.status},
+      user.somiteeId,
+    );
     return {
       success: true,
       statusCode: 200,
@@ -74,7 +93,7 @@ export class UsersController {
 
   @Delete(':id')
   @Roles('users.manage')
-  async deleteUser(@Param('id') id: string, @CurrentUser() user: any) {
+  async deleteUser(@Param('id') id: number, @CurrentUser() user: any) {
     const result = await this.usersService.deleteUser(id, user.somiteeId);
     return {
       success: true,
@@ -86,7 +105,7 @@ export class UsersController {
 
   @Post(':id/reset-password')
   @Roles('users.manage')
-  async resetPassword(@Param('id') id: string, @CurrentUser() user: any) {
+  async resetPassword(@Param('id') id: number, @CurrentUser() user: any) {
     const result = await this.usersService.resetPassword(id, user.somiteeId);
     return {
       success: true,

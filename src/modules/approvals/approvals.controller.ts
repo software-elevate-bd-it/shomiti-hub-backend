@@ -1,9 +1,9 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards } from '@nestjs/common';
-import { ApprovalsService } from './approvals.service';
-import { CreateApprovalDto, ApproveRejectDto } from './dto/approvals.dto';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { CurrentUser } from '../../common/decorators/user.decorator';
+import {Controller, Get, Post, Patch, Param, Body, Query, UseGuards} from '@nestjs/common';
+import {ApprovalsService} from './approvals.service';
+import {CreateApprovalDto, ApproveRejectDto} from './dto/approvals.dto';
+import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
+import {RolesGuard} from '../../common/guards/roles.guard';
+import {CurrentUser} from '../../common/decorators/user.decorator';
 
 @Controller('approvals')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -23,7 +23,7 @@ export class ApprovalsController {
   }
 
   @Get(':id')
-  async getApproval(@Param('id') id: string, @CurrentUser() user: any) {
+  async getApproval(@Param('id') id: number, @CurrentUser() user: any) {
     const approval = await this.approvalsService.getApproval(id, user.somiteeId);
     return {
       success: true,
@@ -50,7 +50,11 @@ export class ApprovalsController {
   }
 
   @Patch(':id/approve')
-  async approveApproval(@Param('id') id: string, @Body() dto: ApproveRejectDto, @CurrentUser() user: any) {
+  async approveApproval(
+    @Param('id') id: number,
+    @Body() dto: ApproveRejectDto,
+    @CurrentUser() user: any,
+  ) {
     const approval = await this.approvalsService.approveApproval(
       id,
       dto,
@@ -67,7 +71,11 @@ export class ApprovalsController {
   }
 
   @Patch(':id/reject')
-  async rejectApproval(@Param('id') id: string, @Body() dto: ApproveRejectDto, @CurrentUser() user: any) {
+  async rejectApproval(
+    @Param('id') id: number,
+    @Body() dto: ApproveRejectDto,
+    @CurrentUser() user: any,
+  ) {
     const approval = await this.approvalsService.rejectApproval(
       id,
       dto,

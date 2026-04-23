@@ -1,6 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { FaqService } from './faq.service';
+import {Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards} from '@nestjs/common';
+import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
+import {FaqService} from './faq.service';
 
 @Controller('faq')
 @UseGuards(JwtAuthGuard)
@@ -18,12 +18,12 @@ export class FaqController {
   }
 
   @Put(':id')
-  async update(@Param('id') id: string, @Body() body: any) {
+  async update(@Param('id') id: number, @Body() body: any) {
     return this.service.update(id, body);
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id') id: number) {
     return this.service.remove(id);
   }
 }

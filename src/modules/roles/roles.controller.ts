@@ -1,10 +1,10 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
-import { RolesService } from './roles.service';
-import { CreateRoleDto, UpdateRoleDto, AssignRoleDto, RemoveRoleDto } from './dto/roles.dto';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { CurrentUser } from '../../common/decorators/user.decorator';
+import {Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards} from '@nestjs/common';
+import {RolesService} from './roles.service';
+import {CreateRoleDto, UpdateRoleDto, AssignRoleDto, RemoveRoleDto} from './dto/roles.dto';
+import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
+import {RolesGuard} from '../../common/guards/roles.guard';
+import {Roles} from '../../common/decorators/roles.decorator';
+import {CurrentUser} from '../../common/decorators/user.decorator';
 
 @Controller('roles')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -36,7 +36,7 @@ export class RolesController {
 
   @Put(':id')
   @Roles('roles.manage')
-  async updateRole(@Param('id') id: string, @Body() dto: UpdateRoleDto, @CurrentUser() user: any) {
+  async updateRole(@Param('id') id: number, @Body() dto: UpdateRoleDto, @CurrentUser() user: any) {
     const role = await this.rolesService.updateRole(id, dto, user.somiteeId);
     return {
       success: true,
@@ -48,7 +48,7 @@ export class RolesController {
 
   @Delete(':id')
   @Roles('roles.manage')
-  async deleteRole(@Param('id') id: string, @CurrentUser() user: any) {
+  async deleteRole(@Param('id') id: number, @CurrentUser() user: any) {
     const result = await this.rolesService.deleteRole(id, user.somiteeId);
     return {
       success: true,
@@ -83,7 +83,7 @@ export class RolesController {
   }
 
   @Get('assignments')
-  async getRoleAssignments(@Query('userId') userId: string, @CurrentUser() user: any) {
+  async getRoleAssignments(@Query('userId') userId: number, @CurrentUser() user: any) {
     const assignments = await this.rolesService.getRoleAssignments(user.somiteeId, userId);
     return {
       success: true,

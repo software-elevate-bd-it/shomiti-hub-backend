@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { CurrentUser } from '../../common/decorators/user.decorator';
-import { SettingsService } from './settings.service';
+import {Body, Controller, Get, Put, UseGuards} from '@nestjs/common';
+import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
+import {CurrentUser} from '../../common/decorators/user.decorator';
+import {SettingsService} from './settings.service';
 
 @Controller('settings')
 @UseGuards(JwtAuthGuard)
@@ -9,17 +9,17 @@ export class SettingsController {
   constructor(private readonly service: SettingsService) {}
 
   @Get('profile')
-  async profile(@CurrentUser('id') userId: string) {
+  async profile(@CurrentUser('id') userId: number) {
     return this.service.profile(userId);
   }
 
   @Put('profile')
-  async updateProfile(@CurrentUser('id') userId: string, @Body() body: any) {
+  async updateProfile(@CurrentUser('id') userId: number, @Body() body: any) {
     return this.service.updateProfile(userId, body);
   }
 
   @Put('password')
-  async changePassword(@CurrentUser('id') userId: string, @Body() body: any) {
+  async changePassword(@CurrentUser('id') userId: number, @Body() body: any) {
     return this.service.changePassword(userId, body);
   }
 

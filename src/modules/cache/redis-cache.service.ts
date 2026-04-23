@@ -1,5 +1,11 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+  OnModuleDestroy,
+} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
 import Redis from 'ioredis';
 
 @Injectable()
@@ -11,7 +17,7 @@ export class RedisCacheService implements OnModuleDestroy {
     this.client = new Redis(redisUrl);
   }
 
-  key(somiteeId: string, suffix: string) {
+  key(somiteeId: number, suffix: string) {
     return `somitee:${somiteeId}:${suffix}`;
   }
 
@@ -33,6 +39,27 @@ export class RedisCacheService implements OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    await this.client.quit();
+    try {
+      await this.client.quit();
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('redis-cache.service.service.onModuleDestroy error:', {
+          message: error.message,
+          stack: error.stack,
+        });
+      } else {
+        console.error('redis-cache.service.service.onModuleDestroy unknown error:', error);
+      }
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to onModuleDestroy');
+    }
   }
 }

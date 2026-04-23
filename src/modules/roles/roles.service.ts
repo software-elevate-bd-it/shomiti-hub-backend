@@ -1,6 +1,13 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { CreateRoleDto, UpdateRoleDto, AssignRoleDto, RemoveRoleDto } from './dto/roles.dto';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
+import {PrismaService} from '../../prisma/prisma.service';
+import {CreateRoleDto, UpdateRoleDto, AssignRoleDto, RemoveRoleDto} from './dto/roles.dto';
 
 @Injectable()
 export class RolesService {
@@ -26,7 +33,13 @@ export class RolesService {
       id: 'role-approver',
       name: 'Approver',
       description: 'Can approve/reject financial transactions',
-      permissions: ['collection.approve', 'expense.approve', 'bank.approve', 'member.approve', 'reports.view'],
+      permissions: [
+        'collection.approve',
+        'expense.approve',
+        'bank.approve',
+        'member.approve',
+        'reports.view',
+      ],
       isPreset: true,
     },
     {
@@ -38,210 +51,415 @@ export class RolesService {
     },
   ];
 
-  async getRoles(somiteeId?: string) {
-    const where = somiteeId ? { somiteeId } : { somiteeId: null };
-    const roles = await this.prisma.role.findMany({
-      where,
-      include: { somitee: true },
-      orderBy: { createdAt: 'asc' },
-    });
-    return roles;
+  async getRoles(somiteeId?: number) {
+    try {
+      const where = somiteeId ? {somiteeId} : {somiteeId: null};
+      const roles = await this.prisma.role.findMany({
+        where,
+        include: {somitee: true},
+        orderBy: {createdAt: 'asc'},
+      });
+      return roles;
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('roles.service.getRoles error:', {
+          message: error.message,
+          stack: error.stack,
+          somiteeId,
+        });
+      } else {
+        console.error('roles.service.service.getRoles unknown error:', error);
+      }
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to getRoles');
+    }
   }
 
-  async createRole(dto: CreateRoleDto, somiteeId: string, userRole: string) {
-    // Check if role name already exists
-    const existing = await this.prisma.role.findFirst({
-      where: { name: dto.name, somiteeId },
-    });
-    if (existing) {
-      throw new ConflictException('Role name already exists');
-    }
-
-    const role = await this.prisma.role.create({
-      data: {
-        name: dto.name,
-        description: dto.description,
-        permissions: dto.permissions || [],
-        somiteeId,
-      },
-    });
-    return role;
-  }
-
-  async updateRole(id: string, dto: UpdateRoleDto, somiteeId: string) {
-    const role = await this.prisma.role.findFirst({
-      where: { id, somiteeId },
-    });
-    if (!role) {
-      throw new NotFoundException('Role not found');
-    }
-
-    if (role.isPreset && dto.name) {
-      throw new ForbiddenException('Cannot rename preset roles');
-    }
-
-    // Check name uniqueness if updating name
-    if (dto.name && dto.name !== role.name) {
+  async createRole(dto: CreateRoleDto, somiteeId: number, userRole: string) {
+    try {
+      // Check if role name already exists
       const existing = await this.prisma.role.findFirst({
-        where: { name: dto.name, somiteeId },
+        where: {name: dto.name, somiteeId},
       });
       if (existing) {
         throw new ConflictException('Role name already exists');
       }
-    }
 
-    const updatedRole = await this.prisma.role.update({
-      where: { id },
-      data: {
-        name: dto.name,
-        description: dto.description,
-        permissions: dto.permissions,
-      },
-    });
-    return updatedRole;
+      const role = await this.prisma.role.create({
+        data: {
+          name: dto.name,
+          description: dto.description,
+          permissions: dto.permissions || [],
+          somiteeId,
+        },
+      });
+      return role;
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('roles.service.service.createRole error:', {
+          message: error.message,
+          stack: error.stack,
+          dto: dto,
+          somiteeId: somiteeId,
+          userRole: userRole,
+        });
+      } else {
+        console.error('roles.service.service.createRole unknown error:', error);
+      }
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to createRole');
+    }
   }
 
-  async deleteRole(id: string, somiteeId: string) {
-    const role = await this.prisma.role.findFirst({
-      where: { id, somiteeId },
-    });
-    if (!role) {
-      throw new NotFoundException('Role not found');
+  async updateRole(id: number, dto: UpdateRoleDto, somiteeId: number) {
+    try {
+      const role = await this.prisma.role.findFirst({
+        where: {id, somiteeId},
+      });
+      if (!role) {
+        throw new NotFoundException('Role not found');
+      }
+
+      if (role.isPreset && dto.name) {
+        throw new ForbiddenException('Cannot rename preset roles');
+      }
+
+      // Check name uniqueness if updating name
+      if (dto.name && dto.name !== role.name) {
+        const existing = await this.prisma.role.findFirst({
+          where: {name: dto.name, somiteeId},
+        });
+        if (existing) {
+          throw new ConflictException('Role name already exists');
+        }
+      }
+
+      const updatedRole = await this.prisma.role.update({
+        where: {id},
+        data: {
+          name: dto.name,
+          description: dto.description,
+          permissions: dto.permissions,
+        },
+      });
+      return updatedRole;
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('roles.service.service.updateRole error:', {
+          message: error.message,
+          stack: error.stack,
+          id: id,
+          dto: dto,
+          somiteeId: somiteeId,
+        });
+      } else {
+        console.error('roles.service.service.updateRole unknown error:', error);
+      }
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to updateRole');
     }
-
-    if (role.isPreset) {
-      throw new ForbiddenException('Cannot delete preset roles');
-    }
-
-    // Remove all assignments first
-    await this.prisma.userRoleAssignment.deleteMany({
-      where: { roleId: id },
-    });
-
-    await this.prisma.role.delete({
-      where: { id },
-    });
-    return { message: 'Role deleted successfully' };
   }
 
-  async assignRole(dto: AssignRoleDto, somiteeId: string) {
-    // Verify user belongs to somitee
-    const user = await this.prisma.user.findFirst({
-      where: { id: dto.userId, somiteeId },
-    });
-    if (!user) {
-      throw new NotFoundException('User not found in this somitee');
+  async deleteRole(id: number, somiteeId: number) {
+    try {
+      const role = await this.prisma.role.findFirst({
+        where: {id, somiteeId},
+      });
+      if (!role) {
+        throw new NotFoundException('Role not found');
+      }
+
+      if (role.isPreset) {
+        throw new ForbiddenException('Cannot delete preset roles');
+      }
+
+      // Remove all assignments first
+      await this.prisma.userRoleAssignment.deleteMany({
+        where: {roleId: id},
+      });
+
+      await this.prisma.role.delete({
+        where: {id},
+      });
+      return {message: 'Role deleted successfully'};
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('roles.service.service.deleteRole error:', {
+          message: error.message,
+          stack: error.stack,
+          id: id,
+          somiteeId: somiteeId,
+        });
+      } else {
+        console.error('roles.service.service.deleteRole unknown error:', error);
+      }
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to deleteRole');
     }
+  }
 
-    // Verify role exists
-    const role = await this.prisma.role.findFirst({
-      where: { id: dto.roleId, OR: [{ somiteeId }, { somiteeId: null }] },
-    });
-    if (!role) {
-      throw new NotFoundException('Role not found');
+  async assignRole(dto: AssignRoleDto, somiteeId: number) {
+    try {
+      // Verify user belongs to somitee
+      const user = await this.prisma.user.findFirst({
+        where: {id: dto.userId, somiteeId},
+      });
+      if (!user) {
+        throw new NotFoundException('User not found in this somitee');
+      }
+
+      // Verify role exists
+      const role = await this.prisma.role.findFirst({
+        where: {id: dto.roleId, OR: [{somiteeId}, {somiteeId: null}]},
+      });
+      if (!role) {
+        throw new NotFoundException('Role not found');
+      }
+
+      // Check if assignment already exists
+      const existing = await this.prisma.userRoleAssignment.findUnique({
+        where: {userId_roleId: {userId: dto.userId, roleId: dto.roleId}},
+      });
+      if (existing) {
+        throw new ConflictException('Role already assigned to user');
+      }
+
+      const assignment = await this.prisma.userRoleAssignment.create({
+        data: {
+          userId: dto.userId,
+          roleId: dto.roleId,
+        },
+        include: {role: true},
+      });
+
+      return {
+        userId: assignment.userId,
+        roleId: assignment.roleId,
+        roleName: assignment.role.name,
+        assignedAt: assignment.assignedAt,
+      };
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('roles.service.service.assignRole error:', {
+          message: error.message,
+          stack: error.stack,
+          dto: dto,
+          somiteeId: somiteeId,
+        });
+      } else {
+        console.error('roles.service.service.assignRole unknown error:', error);
+      }
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to assignRole');
     }
-
-    // Check if assignment already exists
-    const existing = await this.prisma.userRoleAssignment.findUnique({
-      where: { userId_roleId: { userId: dto.userId, roleId: dto.roleId } },
-    });
-    if (existing) {
-      throw new ConflictException('Role already assigned to user');
-    }
-
-    const assignment = await this.prisma.userRoleAssignment.create({
-      data: {
-        userId: dto.userId,
-        roleId: dto.roleId,
-      },
-      include: { role: true },
-    });
-
-    return {
-      userId: assignment.userId,
-      roleId: assignment.roleId,
-      roleName: assignment.role.name,
-      assignedAt: assignment.assignedAt,
-    };
   }
 
   async removeRole(dto: RemoveRoleDto) {
-    const assignment = await this.prisma.userRoleAssignment.findUnique({
-      where: { userId_roleId: { userId: dto.userId, roleId: dto.roleId } },
-    });
-    if (!assignment) {
-      throw new NotFoundException('Role assignment not found');
-    }
-
-    await this.prisma.userRoleAssignment.delete({
-      where: { userId_roleId: { userId: dto.userId, roleId: dto.roleId } },
-    });
-    return { message: 'Role removed successfully' };
-  }
-
-  async getRoleAssignments(somiteeId: string, userId?: string) {
-    const where = userId ? { user: { somiteeId }, userId } : { user: { somiteeId } };
-    const assignments = await this.prisma.userRoleAssignment.findMany({
-      where,
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-        role: true,
-      },
-      orderBy: { assignedAt: 'desc' },
-    });
-
-    return assignments.map((assignment: any) => ({
-      userId: assignment.user.id,
-      userName: assignment.user.name,
-      roleId: assignment.role.id,
-      roleName: assignment.role.name,
-      assignedAt: assignment.assignedAt,
-    }));
-  }
-
-  async getUserPermissions(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        roleAssignments: {
-          include: { role: true },
-        },
-      },
-    });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const permissions = new Set<string>();
-    user.roleAssignments.forEach(assignment => {
-      const rolePermissions = assignment.role.permissions as string[];
-      rolePermissions.forEach(permission => permissions.add(permission));
-    });
-
-    return {
-      userId: user.id,
-      permissions: Array.from(permissions),
-      roles: user.roleAssignments.map((a: any) => a.role.name),
-    };
-  }
-
-  async seedPresetRoles(somiteeId: string) {
-    for (const presetRole of this.PRESET_ROLES) {
-      const existing = await this.prisma.role.findUnique({
-        where: { id: presetRole.id },
+    try {
+      const assignment = await this.prisma.userRoleAssignment.findUnique({
+        where: {userId_roleId: {userId: dto.userId, roleId: dto.roleId}},
       });
-      if (!existing) {
-        await this.prisma.role.create({
-          data: {
-            id: presetRole.id,
-            name: presetRole.name,
-            description: presetRole.description,
-            permissions: presetRole.permissions,
-            isPreset: true,
-            somiteeId: null, // Preset roles are global
-          },
-        });
+      if (!assignment) {
+        throw new NotFoundException('Role assignment not found');
       }
+
+      await this.prisma.userRoleAssignment.delete({
+        where: {userId_roleId: {userId: dto.userId, roleId: dto.roleId}},
+      });
+      return {message: 'Role removed successfully'};
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('roles.service.service.removeRole error:', {
+          message: error.message,
+          stack: error.stack,
+          dto: dto,
+        });
+      } else {
+        console.error('roles.service.service.removeRole unknown error:', error);
+      }
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to removeRole');
+    }
+  }
+
+  async getRoleAssignments(somiteeId: number, userId?: number) {
+    try {
+      const where = userId ? {user: {somiteeId}, userId} : {user: {somiteeId}};
+      const assignments = await this.prisma.userRoleAssignment.findMany({
+        where,
+        include: {
+          user: {select: {id: true, name: true, email: true}},
+          role: true,
+        },
+        orderBy: {assignedAt: 'desc'},
+      });
+
+      return assignments.map((assignment: any) => ({
+        userId: assignment.user.id,
+        userName: assignment.user.name,
+        roleId: assignment.role.id,
+        roleName: assignment.role.name,
+        assignedAt: assignment.assignedAt,
+      }));
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('roles.service.getRoleAssignments error:', {
+          message: error.message,
+          stack: error.stack,
+          somiteeId,
+          userId,
+        });
+      } else {
+        console.error('roles.service.service.getRoleAssignments unknown error:', error);
+      }
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to getRoleAssignments');
+    }
+  }
+
+  async getUserPermissions(userId: number) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: {id: userId},
+        include: {
+          roleAssignments: {
+            include: {role: true},
+          },
+        },
+      });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      const permissions = new Set<string>();
+      user.roleAssignments.forEach((assignment) => {
+        const rolePermissions = assignment.role.permissions as string[];
+        rolePermissions.forEach((permission) => permissions.add(permission));
+      });
+
+      return {
+        userId: user.id,
+        permissions: Array.from(permissions),
+        roles: user.roleAssignments.map((a: any) => a.role.name),
+      };
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('roles.service.service.getUserPermissions error:', {
+          message: error.message,
+          stack: error.stack,
+          userId: userId,
+        });
+      } else {
+        console.error('roles.service.service.getUserPermissions unknown error:', error);
+      }
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to getUserPermissions');
+    }
+  }
+
+  async seedPresetRoles(somiteeId: number) {
+    try {
+      for (const presetRole of this.PRESET_ROLES) {
+        const existing = await this.prisma.role.findUnique({
+          where: { id: BigInt(presetRole.id) },
+        });
+        if (!existing) {
+          await this.prisma.role.create({
+            data: {
+              id: BigInt(presetRole.id),
+              name: presetRole.name,
+              description: presetRole.description,
+              permissions: presetRole.permissions,
+              isPreset: true,
+              somiteeId: null, // Preset roles are global
+            },
+          });
+        }
+      }
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('roles.service.service.seedPresetRoles error:', {
+          message: error.message,
+          stack: error.stack,
+          somiteeId: somiteeId,
+        });
+      } else {
+        console.error('roles.service.service.seedPresetRoles unknown error:', error);
+      }
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to seedPresetRoles');
     }
   }
 }

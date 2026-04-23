@@ -1,6 +1,17 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { SomiteesService } from './somitees.service';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {JwtAuthGuard} from '../../../common/guards/jwt-auth.guard';
+import {SomiteesService} from './somitees.service';
 
 @Controller('admin/somitees')
 @UseGuards(JwtAuthGuard)
@@ -13,7 +24,7 @@ export class SomiteesController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: number) {
     return this.service.findOne(id);
   }
 
@@ -23,17 +34,17 @@ export class SomiteesController {
   }
 
   @Put(':id')
-  async update(@Param('id') id: string, @Body() body: any) {
+  async update(@Param('id') id: number, @Body() body: any) {
     return this.service.update(id, body);
   }
 
   @Patch(':id/status')
-  async changeStatus(@Param('id') id: string, @Body() body: any) {
+  async changeStatus(@Param('id') id: number, @Body() body: any) {
     return this.service.changeStatus(id, body);
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id') id: number) {
     return this.service.remove(id);
   }
 }

@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Post, Put, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthService } from './auth.service';
-import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
-import { CurrentUser } from '../../common/decorators/user.decorator';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import {Body, Controller, Get, Post, Put, UseGuards} from '@nestjs/common';
+import {ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags} from '@nestjs/swagger';
+import {AuthService} from './auth.service';
+import {LoginDto} from './dto/login.dto';
+import {RegisterDto} from './dto/register.dto';
+import {CurrentUser} from '../../common/decorators/user.decorator';
+import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
 
 @ApiTags('Auth')
 @ApiBearerAuth('Authorization')
@@ -13,17 +13,17 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
-  @ApiOperation({ summary: 'Authenticate user' })
-  @ApiBody({ type: LoginDto })
-  @ApiOkResponse({ description: 'User authenticated successfully' })
+  @ApiOperation({summary: 'Authenticate user'})
+  @ApiBody({type: LoginDto})
+  @ApiOkResponse({description: 'User authenticated successfully'})
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
 
   @Post('register')
-  @ApiOperation({ summary: 'Register a new somitee user' })
-  @ApiBody({ type: RegisterDto })
-  @ApiOkResponse({ description: 'User registration successful' })
+  @ApiOperation({summary: 'Register a new somitee user'})
+  @ApiBody({type: RegisterDto})
+  @ApiOkResponse({description: 'User registration successful'})
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
@@ -50,8 +50,8 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  @ApiOperation({ summary: 'Get current authenticated user' })
-  @ApiOkResponse({ description: 'Current user profile' })
+  @ApiOperation({summary: 'Get current authenticated user'})
+  @ApiOkResponse({description: 'Current user profile'})
   me(@CurrentUser() user: any) {
     return user;
   }

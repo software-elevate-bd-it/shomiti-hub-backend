@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, IsEnum, IsBoolean } from 'class-validator';
+import {IsString, IsOptional, IsArray, IsEnum, IsBoolean} from 'class-validator';
 
 export class CreateUserDto {
   @IsString()
@@ -19,7 +19,7 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @IsString({each: true})
   roleIds?: string[];
 }
 
@@ -42,7 +42,7 @@ export class UpdateUserDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @IsString({each: true})
   roleIds?: string[];
 
   @IsOptional()
