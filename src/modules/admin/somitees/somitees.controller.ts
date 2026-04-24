@@ -12,7 +12,9 @@ import {
 } from '@nestjs/common';
 import {JwtAuthGuard} from '../../../common/guards/jwt-auth.guard';
 import {SomiteesService} from './somitees.service';
+import {ApiTags} from '@nestjs/swagger';
 
+@ApiTags('Admin-Somitees')
 @Controller('admin/somitees')
 @UseGuards(JwtAuthGuard)
 export class SomiteesController {

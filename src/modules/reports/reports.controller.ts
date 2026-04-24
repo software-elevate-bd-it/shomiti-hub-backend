@@ -2,7 +2,9 @@ import {Controller, Get, Query, UseGuards} from '@nestjs/common';
 import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
 import {CurrentUser} from '../../common/decorators/user.decorator';
 import {ReportsService} from './reports.service';
+import {ApiTags} from '@nestjs/swagger';
 
+@ApiTags('Reports')
 @Controller('reports')
 @UseGuards(JwtAuthGuard)
 export class ReportsController {

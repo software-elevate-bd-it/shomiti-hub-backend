@@ -2,7 +2,9 @@ import {Body, Controller, Get, Param, Patch, Query, UseGuards} from '@nestjs/com
 import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
 import {CurrentUser} from '../../common/decorators/user.decorator';
 import {PaymentsService} from './payments.service';
+import {ApiTags} from '@nestjs/swagger';
 
+@ApiTags('Payments')
 @Controller('payments')
 @UseGuards(JwtAuthGuard)
 export class PaymentsController {

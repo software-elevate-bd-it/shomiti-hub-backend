@@ -1,4 +1,5 @@
 import {ApiProperty, ApiPropertyOptional} from '@nestjs/swagger';
+import {Type} from 'class-transformer';
 import {
   IsNotEmpty,
   IsString,
@@ -13,6 +14,17 @@ import {
 
 export class RegisterMemberDto {
   // Personal Information
+
+  // Financial Information
+  @ApiProperty({
+    example: 10001,
+    description: 'Unique member ID (auto-generated, ignore in request)',
+  })
+  @IsNotEmpty()
+  @IsNumber()
+  @Type(() => Number)
+  memberRegNumber!: number;
+
   @ApiProperty({example: 'করিম মিয়া', description: 'Name in Bengali'})
   @IsNotEmpty()
   @IsString()
@@ -120,5 +132,6 @@ export class RegisterMemberDto {
   @ApiProperty({example: 500, description: 'Monthly fee'})
   @IsNotEmpty()
   @IsNumber()
+  @Type(() => Number)
   monthlyFee!: number;
 }

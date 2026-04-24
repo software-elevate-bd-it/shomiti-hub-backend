@@ -4,6 +4,7 @@ import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
 import {CurrentUser} from '../../common/decorators/user.decorator';
 import {SmsService} from './sms.service';
 
+@ApiTags('SMS')
 @Controller('sms')
 @UseGuards(JwtAuthGuard)
 export class SmsController {

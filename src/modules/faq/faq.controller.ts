@@ -1,7 +1,9 @@
 import {Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards} from '@nestjs/common';
 import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
 import {FaqService} from './faq.service';
+import {ApiTags} from '@nestjs/swagger';
 
+@ApiTags('FAQ')
 @Controller('faq')
 @UseGuards(JwtAuthGuard)
 export class FaqController {

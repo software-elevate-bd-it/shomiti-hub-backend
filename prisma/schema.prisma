@@ -162,6 +162,10 @@ enum SomiteeStatus {
 
 model Member {
   id       BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+
+  // 🔥 link back to request
+  request  MemberRequest?
+
   name     String
   shopName String       @map("shop_name")
   phone    String
@@ -184,7 +188,6 @@ model Member {
   totalPaid    Int      @default(0) @map("total_paid")
   joinDate     DateTime @default(now()) @map("join_date")
 
-  // Relations
   payments      Payment[]
   paymentItems  PaymentItem[]
   transactions  Transaction[]
@@ -194,8 +197,6 @@ model Member {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([somiteeId])
-  @@index([createdById])
-  @@index([updatedById])
   @@index([somiteeId, status])
   @@map("members")
 }
@@ -207,7 +208,15 @@ enum MemberStatus {
 
 model MemberRequest {
   id       BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
-  memberId BigInt?       @unique @map("member_id") @db.UnsignedBigInt
+
+   // 🔗 Relation to Member (after approval)
+  memberId BigInt? @unique @map("member_id") @db.UnsignedBigInt
+  member   Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+
+  memberRegNumber BigInt? @unique @map("member_reg_number") @db.UnsignedBigInt
+
+
   status   RequestStatus @default(pending)
 
   // Personal Information
@@ -234,12 +243,12 @@ model MemberRequest {
   // Identification
   nid String @unique
 
-  // Nominee Information
+  // Nominee
   nomineeName     String @map("nominee_name")
   nomineeRelation String @map("nominee_relation")
   nomineeNid      String @map("nominee_nid")
 
-  // Financial Information
+  // Financial
   monthlyFee   Int    @map("monthly_fee")
   billingCycle String @default("monthly") @map("billing_cycle")
 
@@ -259,7 +268,7 @@ model MemberRequest {
   updatedById BigInt? @map("updated_by_id") @db.UnsignedBigInt
   updatedBy   User?   @relation("MemberRequestUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
-  // Approval Information
+  // Approval Info
   rejectionNote String?   @map("rejection_note")
   approvedAt    DateTime? @map("approved_at")
   approvedBy    BigInt?   @map("approved_by") @db.UnsignedBigInt
@@ -269,9 +278,8 @@ model MemberRequest {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([somiteeId])
-  @@index([createdById])
-  @@index([updatedById])
   @@index([somiteeId, status])
+  @@index([createdById])
   @@map("member_requests")
 }
 

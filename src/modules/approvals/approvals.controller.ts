@@ -4,7 +4,9 @@ import {CreateApprovalDto, ApproveRejectDto} from './dto/approvals.dto';
 import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
 import {RolesGuard} from '../../common/guards/roles.guard';
 import {CurrentUser} from '../../common/decorators/user.decorator';
+import {ApiTags} from '@nestjs/swagger';
 
+@ApiTags('Approvals')
 @Controller('approvals')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ApprovalsController {

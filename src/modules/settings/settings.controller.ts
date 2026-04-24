@@ -2,7 +2,9 @@ import {Body, Controller, Get, Put, UseGuards} from '@nestjs/common';
 import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
 import {CurrentUser} from '../../common/decorators/user.decorator';
 import {SettingsService} from './settings.service';
+import {ApiTags} from '@nestjs/swagger';
 
+@ApiTags('Settings')
 @Controller('settings')
 @UseGuards(JwtAuthGuard)
 export class SettingsController {

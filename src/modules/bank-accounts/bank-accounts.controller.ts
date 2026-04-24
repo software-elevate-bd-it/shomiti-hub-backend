@@ -13,7 +13,9 @@ import {
 import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
 import {CurrentUser} from '../../common/decorators/user.decorator';
 import {BankAccountsService} from './bank-accounts.service';
+import {ApiTags} from '@nestjs/swagger';
 
+@ApiTags('Bank Accounts')
 @Controller('bank-accounts')
 @UseGuards(JwtAuthGuard)
 export class BankAccountsController {

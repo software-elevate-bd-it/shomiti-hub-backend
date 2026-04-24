@@ -5,27 +5,63 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {PrismaService} from '../../prisma/prisma.service';
+import {ListExpenseQueryDto} from './dto/list-expense-query.dto';
+import {CreateExpenseDto} from './dto/create-expense.dto';
+import {UpdateExpenseDto} from './dto/update.expense.dto';
 
 @Injectable()
 export class ExpensesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(somiteeId: number, query: any) {
+  // ==================== Get Collection List ======================
+  async list(somiteeId: number, query: ListExpenseQueryDto) {
     try {
       const page = Number(query.page || 1);
       const limit = Number(query.limit || 10);
-      const where: any = {somiteeId};
-      if (query.category) where.category = query.category;
-      if (query.dateFrom || query.dateTo) {
-        where.date = {};
-        if (query.dateFrom) where.date.gte = new Date(query.dateFrom);
-        if (query.dateTo) where.date.lte = new Date(query.dateTo);
+
+      const where: any = {
+        somiteeId: BigInt(somiteeId),
+      };
+
+      // ======================
+      // SMART SEARCH (ONE FIELD → MULTI MATCH)
+      // ======================
+      if (query.search) {
+        const search = query.search.trim();
+        const isNumber = !isNaN(Number(search));
+
+        let memberIdFromReg: bigint | undefined;
+
+        if (isNumber) {
+          const memberReq = await this.prisma.memberRequest.findFirst({
+            where: {
+              memberRegNumber: BigInt(search),
+              somiteeId: BigInt(somiteeId),
+            },
+          });
+
+          if (memberReq?.memberId) {
+            memberIdFromReg = memberReq.memberId;
+          }
+        }
+
+        where.OR = [
+          {category: {contains: search}},
+          {note: {contains: search}},
+          {status: {contains: search}},
+          {method: {contains: search}},
+          {
+            member: {
+              name: {contains: search},
+            },
+          },
+          ...(memberIdFromReg ? [{memberId: memberIdFromReg}] : []),
+        ];
       }
-      if (query.amountMin || query.amountMax) {
-        where.amount = {};
-        if (query.amountMin) where.amount.gte = Number(query.amountMin);
-        if (query.amountMax) where.amount.lte = Number(query.amountMax);
-      }
+
+      // ======================
+      // QUERY
+      // ======================
       const [data, total] = await Promise.all([
         this.prisma.expense.findMany({
           where,
@@ -35,84 +71,190 @@ export class ExpensesService {
         }),
         this.prisma.expense.count({where}),
       ]);
-      return {data, meta: {page, limit, total, totalPages: Math.ceil(total / limit)}};
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error('expenses.service.service.list error:', {
-          message: error.message,
-          stack: error.stack,
-          somiteeId: somiteeId,
-          query: query,
-        });
-      } else {
-        console.error('expenses.service.service.list unknown error:', error);
-      }
 
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Failed to list');
+      return {
+        data,
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      console.error('expense.list error:', error);
+      throw new InternalServerErrorException('Failed to list expenses');
     }
   }
 
-  async create(somiteeId: number, body: any) {
+  async create(somiteeId: number, userId: number, body: CreateExpenseDto) {
     try {
-      return this.prisma.expense.create({data: {...body, somiteeId}});
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error('expenses.service.service.create error:', {
-          message: error.message,
-          stack: error.stack,
-          somiteeId: somiteeId,
-          body: body,
+      return await this.prisma.$transaction(async (tx) => {
+        const expense = await tx.expense.create({
+          data: {
+            amount: body.amount,
+            date: new Date(body.date),
+            category: body.category,
+            method: body.method,
+            note: body.note,
+            receiptUrl: body.receiptUrl,
+            status: body.status || 'approved',
+            somiteeId,
+            createdById: userId,
+          },
         });
-      } else {
-        console.error('expenses.service.service.create unknown error:', error);
-      }
 
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
+        await tx.transaction.create({
+          data: {
+            memberId: null,
+            memberName: null,
+            type: 'expense',
+            amount: body.amount,
+            date: new Date(body.date),
+            status: 'approved',
+            method: body.method,
+            category: body.category,
+            transactionId: `EXP-${expense.id}`,
+            note: body.note,
+            somiteeId,
+            createdById: userId,
+          },
+        });
 
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
+        await tx.ledgerEntry.create({
+          data: {
+            date: new Date(body.date),
+            description: `Expense: ${body.category}`,
+            type: 'expense',
+            debit: body.amount,
+            credit: 0,
+            balance: 0,
+            referenceType: 'expense',
+            referenceId: expense.id.toString(),
+            somiteeId,
+            createdById: userId,
+          },
+        });
 
-      throw new InternalServerErrorException('Failed to create');
+        await tx.cashBookEntry.create({
+          data: {
+            date: new Date(body.date),
+            description: `Expense: ${body.category}`,
+            cashIn: 0,
+            cashOut: body.amount,
+            balance: 0,
+            referenceType: 'expense',
+            referenceId: expense.id.toString(),
+            somiteeId,
+            createdById: userId,
+          },
+        });
+
+        return {
+          success: true,
+          message: 'Expense created successfully',
+          data: expense,
+        };
+      });
+    } catch (error: unknown) {
+      console.error('expense.create error:', error);
+
+      throw new InternalServerErrorException('Failed to create expense');
     }
   }
 
-  async update(id: number, somiteeId: number, body: any) {
+  async update(id: number, somiteeId: number, body: UpdateExpenseDto) {
     try {
-      await this.findOne(id, somiteeId);
-      return this.prisma.expense.update({where: {id}, data: body});
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error('expenses.service.service.update error:', {
-          message: error.message,
-          stack: error.stack,
-          id: id,
-          somiteeId: somiteeId,
-          body: body,
+      return await this.prisma.$transaction(async (tx) => {
+        // ======================
+        // 1. GET EXISTING EXPENSE
+        // ======================
+        const expense = await tx.expense.findFirst({
+          where: {id: BigInt(id), somiteeId},
         });
-      } else {
-        console.error('expenses.service.service.update unknown error:', error);
-      }
 
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
+        if (!expense) {
+          throw new NotFoundException('Expense not found');
+        }
 
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
+        // ======================
+        // 2. UPDATE EXPENSE
+        // ======================
+        const updatedExpense = await tx.expense.update({
+          where: {id: BigInt(id)},
+          data: {
+            amount: body.amount ?? expense.amount,
+            date: body.date ? new Date(body.date) : expense.date,
+            category: body.category ?? expense.category,
+            method: body.method ?? expense.method,
+            note: body.note ?? expense.note,
+            status: body.status ?? expense.status,
+          },
+        });
 
-      throw new InternalServerErrorException('Failed to update');
+        // ======================
+        // 3. UPDATE TRANSACTION
+        // ======================
+        await tx.transaction.updateMany({
+          where: {
+            transactionId: `EXP-${id}`,
+            somiteeId,
+          },
+          data: {
+            amount: updatedExpense.amount,
+            date: updatedExpense.date,
+            category: updatedExpense.category,
+            method: updatedExpense.method,
+            note: updatedExpense.note,
+            status: updatedExpense.status,
+          },
+        });
+
+        // ======================
+        // 4. UPDATE LEDGER
+        // ======================
+        await tx.ledgerEntry.updateMany({
+          where: {
+            referenceType: 'expense',
+            referenceId: id.toString(),
+            somiteeId,
+          },
+          data: {
+            date: updatedExpense.date,
+            description: `Expense: ${updatedExpense.category}`,
+            debit: updatedExpense.amount,
+          },
+        });
+
+        // ======================
+        // 5. UPDATE CASH BOOK
+        // ======================
+        await tx.cashBookEntry.updateMany({
+          where: {
+            referenceType: 'expense',
+            referenceId: id.toString(),
+            somiteeId,
+          },
+          data: {
+            date: updatedExpense.date,
+            description: `Expense: ${updatedExpense.category}`,
+            cashOut: updatedExpense.amount,
+          },
+        });
+
+        return {
+          success: true,
+          message: 'Expense updated successfully',
+          data: updatedExpense,
+        };
+      });
+    } catch (error: unknown) {
+      console.error('expense.update error:', error);
+
+      if (error instanceof NotFoundException) throw error;
+      if (error instanceof BadRequestException) throw error;
+
+      throw new InternalServerErrorException('Failed to update expense');
     }
   }
 

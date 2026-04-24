@@ -6,388 +6,496 @@ import {
 } from '@nestjs/common';
 import {PrismaService} from '../../prisma/prisma.service';
 import {RegisterMemberDto} from './dto/register-member.dto';
-import {DraftMemberDto} from './dto/draft-member.dto';
-import {UploadImagesDto} from './dto/upload-images.dto';
 import {Express} from 'express';
 import * as multer from 'multer';
+import * as fs from 'fs';
+import * as path from 'path';
+import {ApproveMemberRequestDto} from './dto/approve-member-request.dto';
+import {RejectMemberRequestDto} from './dto/reject-member-request.dto';
 
+type UploadFilesType = {
+  profileImage?: Express.Multer.File[];
+  nidFront?: Express.Multer.File[];
+  nidBack?: Express.Multer.File[];
+  signature?: Express.Multer.File[];
+};
 @Injectable()
 export class MemberRequestsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async register(dto: RegisterMemberDto, userId: number, somiteeId: number) {
+  // ====================== REGISTER WITH IMAGES (REQUIRED) ======================
+  // Note: For registration, all fields and images are required. For draft saving, all fields and images are optional.
+  // This allows users to save incomplete drafts without needing to upload files immediately.
+  // The service layer will handle the logic to differentiate between a full registration and a draft, and validate accordingly.
+  // The API documentation will reflect the required fields for registration and optional fields for draft saving.
+  async registerWithImages(
+    dto: RegisterMemberDto,
+    files: UploadFilesType,
+    userId: number,
+    somiteeId: number,
+  ) {
+    const requiredFiles = ['profileImage', 'nidFront', 'nidBack', 'signature'] as const;
+
     try {
-      // Check if NID already exists
+      // =====================================================
+      // 1. VALIDATE & MAP FILES
+      // =====================================================
+      const fileMap: Record<(typeof requiredFiles)[number], Express.Multer.File> = {} as any;
+
+      for (const field of requiredFiles) {
+        const file = files[field]?.[0];
+
+        if (!file) {
+          throw new BadRequestException(`${field} is required`);
+        }
+
+        fileMap[field] = file;
+      }
+
+      // =====================================================
+      // 2. CHECK DUPLICATES (BEFORE DB INSERT)
+      // =====================================================
+
       const existingRequest = await this.prisma.memberRequest.findUnique({
         where: {nid: dto.nid},
       });
 
       if (existingRequest) {
-        throw new BadRequestException('A registration request with this NID already exists');
+        throw new BadRequestException('NID already exists');
       }
 
-      // Check if mobile already exists
+      const existingMemberId = await this.prisma.memberRequest.findUnique({
+        where: {memberRegNumber: dto.memberRegNumber},
+      });
+
+      if (existingMemberId) {
+        throw new BadRequestException('This member ID already exists');
+      }
+
       const existingMobile = await this.prisma.memberRequest.findFirst({
         where: {mobile: dto.mobile},
       });
 
       if (existingMobile) {
-        throw new BadRequestException(
-          'A registration request with this mobile number already exists',
-        );
+        throw new BadRequestException('Mobile already exists');
       }
 
-      const request = await this.prisma.memberRequest.create({
-        data: {
-          nameBn: dto.nameBn,
-          nameEn: dto.nameEn,
-          fatherName: dto.fatherName,
-          motherName: dto.motherName,
-          dob: new Date(dto.dob),
-          nationality: dto.nationality,
-          religion: dto.religion,
-          bloodGroup: dto.bloodGroup,
-          mobile: dto.mobile,
-          village: dto.village,
-          wardNo: dto.wardNo,
-          union: dto.union,
-          upazila: dto.upazila,
-          district: dto.district,
-          shopName: dto.shopName,
-          nid: dto.nid,
-          nomineeName: dto.nomineeName,
-          nomineeRelation: dto.nomineeRelation,
-          nomineeNid: dto.nomineeNid,
-          monthlyFee: dto.monthlyFee,
-          somiteeId,
-          createdById: userId,
-        },
-      });
-
-      return {
-        success: true,
-        statusCode: 201,
-        message: 'Registration submitted. Pending admin approval.',
-        data: {
-          id: request.id,
-          status: request.status,
-          appliedAt: request.createdAt,
-        },
-      };
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error('member-requests.service.register error:', {
-          message: error.message,
-          stack: error.stack,
-          dto,
-          somiteeId,
-          userId,
+      // =====================================================
+      // 3. TRANSACTION START
+      // =====================================================
+      return await this.prisma.$transaction(async (tx) => {
+        // 3.1 Create DB record
+        const request = await tx.memberRequest.create({
+          data: {
+            ...dto,
+            dob: new Date(dto.dob),
+            somiteeId,
+            createdById: userId,
+          },
         });
-      } else {
-        console.error('member-requests.service.register unknown error:', error);
-      }
 
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
+        // =====================================================
+        // 3.2 Create upload directory
+        // =====================================================
+        const uploadDir = path.join(process.cwd(), 'uploads', 'members', request.id.toString());
+
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, {recursive: true});
+        }
+
+        const uploadedFiles: Record<string, string> = {};
+
+        // =====================================================
+        // 3.3 SAVE FILES
+        // =====================================================
+        for (const field of requiredFiles) {
+          const file = fileMap[field];
+
+          if (!file?.buffer) {
+            throw new BadRequestException(`${field} buffer missing`);
+          }
+
+          const ext = file.mimetype.split('/')[1];
+          const fileName = `${field}-${Date.now()}.${ext}`;
+          const filePath = path.join(uploadDir, fileName);
+
+          fs.writeFileSync(filePath, file.buffer);
+
+          uploadedFiles[`${field}Url`] = `/uploads/members/${request.id}/${fileName}`;
+        }
+
+        // =====================================================
+        // 3.4 UPDATE DB WITH FILE PATHS
+        // =====================================================
+        await tx.memberRequest.update({
+          where: {id: request.id},
+          data: uploadedFiles,
+        });
+
+        return {
+          success: true,
+          message: 'Registration + images uploaded successfully',
+          data: {
+            id: request.id,
+            ...uploadedFiles,
+          },
+        };
+      });
+    } catch (error) {
+      console.error('registerWithImages error:', error);
+
       if (error instanceof BadRequestException) {
         throw error;
       }
 
-      throw new InternalServerErrorException('Failed to register');
+      throw new InternalServerErrorException('Registration failed');
     }
   }
 
-  async uploadImages(
-    dto: UploadImagesDto,
-    files: Express.Multer.File[],
+  // ====================== SAVE DRAFT WITH IMAGES (OPTIONAL) ======================
+  // Note: This endpoint allows saving a draft of the member registration. All fields and images are optional, so users can save incomplete drafts.
+  // The service layer will handle the logic to differentiate between a full registration and a draft, and validate accordingly.
+  // The API documentation will reflect the required fields for registration and optional fields for draft saving.
+  // The same DTO and file upload structure is used for simplicity, but the service will not enforce required fields for drafts.
+  async saveDraftWithImages(
+    dto: RegisterMemberDto,
+    files: UploadFilesType,
     userId: number,
     somiteeId: number,
   ) {
+    const fileFields = ['profileImage', 'nidFront', 'nidBack', 'signature'] as const;
+
     try {
-      const registrationId = Number(dto.registrationId);
+      console.log('saveDraftWithImages called');
 
-      // Find the registration request
-      const request = await this.prisma.memberRequest.findFirst({
-        where: {id: registrationId, somiteeId},
-      });
+      // =====================================================
+      // 1. MAP FILES (OPTIONAL in draft)
+      // =====================================================
+      const fileMap: Partial<Record<(typeof fileFields)[number], Express.Multer.File>> = {};
 
-      if (!request) {
-        throw new NotFoundException('Registration request not found');
-      }
+      for (const field of fileFields) {
+        const file = files[field]?.[0];
 
-      // Validate required files
-      const requiredFiles = ['profileImage', 'nidFront', 'nidBack', 'signature'];
-      const uploadedFiles: Record<string, string> = {};
-
-      for (const file of files) {
-        if (requiredFiles.includes(file.fieldname)) {
-          const fileName = `${file.fieldname}-${registrationId}.${file.mimetype.split('/')[1]}`;
-          uploadedFiles[`${file.fieldname}Url`] = `https://cdn.somiteehq.com/members/${fileName}`;
+        if (file) {
+          fileMap[field] = file;
         }
       }
 
-      // Update the request with image URLs
-      await this.prisma.memberRequest.update({
-        where: {id: registrationId},
-        data: {
-          ...uploadedFiles,
-          updatedById: userId,
-        },
+      // =====================================================
+      // 2. CHECK DUPLICATES (BEFORE DB INSERT)
+      // =====================================================
+
+      const existingRequest = await this.prisma.memberRequest.findUnique({
+        where: {nid: dto.nid},
       });
 
-      return {
-        success: true,
-        statusCode: 200,
-        message: 'Images uploaded',
-        data: uploadedFiles,
-      };
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error('member-requests.service.uploadImages error:', {
-          message: error.message,
-          stack: error.stack,
-          dto,
-          files,
-          somiteeId,
+      if (existingRequest) {
+        throw new BadRequestException('NID already exists');
+      }
+
+      const existingMemberRegNumber = await this.prisma.memberRequest.findUnique({
+        where: {memberRegNumber: dto.memberRegNumber},
+      });
+
+      if (existingMemberRegNumber) {
+        throw new BadRequestException('This member registration number already exists');
+      }
+
+      const existingMobile = await this.prisma.memberRequest.findFirst({
+        where: {mobile: dto.mobile},
+      });
+
+      if (existingMobile) {
+        throw new BadRequestException('Mobile already exists');
+      }
+
+      // =====================================================
+      // 3. TRANSACTION
+      // =====================================================
+      return await this.prisma.$transaction(async (tx) => {
+        // 2.1 Create draft record
+        const draft = await tx.memberRequest.create({
+          data: {
+            ...dto,
+            dob: new Date(dto.dob),
+            somiteeId,
+            createdById: userId,
+            status: 'draft', // ✅ important
+          },
         });
-      } else {
-        console.error('member-requests.service.uploadImages unknown error:', error);
-      }
 
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
+        // =====================================================
+        // 2.2 Create upload dir
+        // =====================================================
+        const uploadDir = path.join(process.cwd(), 'uploads', 'members', draft.id.toString());
 
-      throw new InternalServerErrorException('Failed to upload images');
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, {recursive: true});
+        }
+
+        const uploadedFiles: Record<string, string> = {};
+
+        // =====================================================
+        // 2.3 SAVE FILES (ONLY IF PROVIDED)
+        // =====================================================
+        for (const field of fileFields) {
+          const file = fileMap[field];
+
+          if (!file) continue; // ✅ optional in draft
+
+          if (!file.buffer) {
+            throw new BadRequestException(`${field} buffer missing`);
+          }
+
+          const ext = file.mimetype.split('/')[1];
+          const fileName = `${field}-${Date.now()}.${ext}`;
+          const filePath = path.join(uploadDir, fileName);
+
+          fs.writeFileSync(filePath, file.buffer);
+
+          uploadedFiles[`${field}Url`] = `/uploads/members/${draft.id}/${fileName}`;
+        }
+
+        // =====================================================
+        // 2.4 UPDATE ONLY IF FILES EXIST
+        // =====================================================
+        if (Object.keys(uploadedFiles).length > 0) {
+          await tx.memberRequest.update({
+            where: {id: draft.id},
+            data: uploadedFiles,
+          });
+        }
+
+        return {
+          success: true,
+          message: 'Draft saved successfully',
+          data: {
+            id: draft.id,
+            status: 'DRAFT',
+            ...uploadedFiles,
+          },
+        };
+      });
+    } catch (error) {
+      console.error('saveDraftWithImages error:', error);
+
+      throw new InternalServerErrorException('Draft save failed');
     }
   }
 
-  async saveDraft(dto: DraftMemberDto, userId: number, somiteeId: number) {
+  // ====================== LIST MEMBER REQUESTS ======================
+  // Note: This lists member requests, not approved members. Approved members would be a different endpoint.
+  // Query params: page, limit, search
+  // Example: GET /members?page=1&limit=10&search=karim
+  // Note: search can match nameBn, nameEn, mobile, nid, nomineeName, etc. (handled in service)
+  // Response includes pagination metadata: total items, total pages, current page, items per page
+  async listMembers(somiteeId: number | string, page = 1, limit = 10, search?: string) {
     try {
-      const draftData: any = {
-        status: 'draft',
-        somiteeId,
-        createdById: userId,
+      const numericSomiteeId = Number(somiteeId);
+      const safePage = Math.max(Number(page) || 1, 1);
+      const safeLimit = Math.max(Number(limit) || 10, 1);
+
+      if (isNaN(numericSomiteeId)) {
+        throw new BadRequestException('Invalid somiteeId');
+      }
+
+      const where: any = {
+        somiteeId: numericSomiteeId,
       };
 
-      if (dto.nameBn) draftData.nameBn = dto.nameBn;
-      if (dto.nameEn) draftData.nameEn = dto.nameEn;
-      if (dto.fatherName) draftData.fatherName = dto.fatherName;
-      if (dto.motherName) draftData.motherName = dto.motherName;
-      if (dto.dob) draftData.dob = new Date(dto.dob);
-      if (dto.nationality) draftData.nationality = dto.nationality;
-      if (dto.religion) draftData.religion = dto.religion;
-      if (dto.bloodGroup) draftData.bloodGroup = dto.bloodGroup;
-      if (dto.mobile) draftData.mobile = dto.mobile;
-      if (dto.village) draftData.village = dto.village;
-      if (dto.wardNo) draftData.wardNo = dto.wardNo;
-      if (dto.union) draftData.union = dto.union;
-      if (dto.upazila) draftData.upazila = dto.upazila;
-      if (dto.district) draftData.district = dto.district;
-      if (dto.shopName) draftData.shopName = dto.shopName;
-      if (dto.nid) draftData.nid = dto.nid;
-      if (dto.nomineeName) draftData.nomineeName = dto.nomineeName;
-      if (dto.nomineeRelation) draftData.nomineeRelation = dto.nomineeRelation;
-      if (dto.nomineeNid) draftData.nomineeNid = dto.nomineeNid;
-      if (dto.monthlyFee) draftData.monthlyFee = dto.monthlyFee;
+      // =========================
+      // SEARCH FIXED PROPERLY
+      // =========================
+      if (search?.trim()) {
+        const clean = search.trim();
+        const maybeNumber = Number(clean);
 
-      const draft = await this.prisma.memberRequest.create({
-        data: draftData,
-      });
-
-      return {
-        success: true,
-        statusCode: 200,
-        message: 'Draft saved',
-        data: {
-          draftId: draft.id,
-          savedAt: draft.createdAt,
-        },
-      };
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error('member-requests.service.saveDraft error:', {
-          message: error.message,
-          stack: error.stack,
-          dto,
-          somiteeId,
-          userId,
-        });
-      } else {
-        console.error('member-requests.service.saveDraft unknown error:', error);
+        where.OR = [
+          {nameBn: {contains: clean}},
+          {nameEn: {contains: clean}},
+          {mobile: {contains: clean}},
+          {nid: {contains: clean}},
+          ...(isNaN(maybeNumber) ? [] : [{memberId: maybeNumber}]),
+        ];
       }
 
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Failed to save draft');
-    }
-  }
-
-  async list(somiteeId: number, page = 1, limit = 10) {
-    try {
-      const where = {somiteeId};
       const [data, total] = await Promise.all([
         this.prisma.memberRequest.findMany({
           where,
-          skip: (page - 1) * limit,
-          take: limit,
-          orderBy: {createdAt: 'desc'},
+          skip: (safePage - 1) * safeLimit,
+          take: safeLimit,
+          orderBy: {id: 'desc'},
         }),
+
         this.prisma.memberRequest.count({where}),
       ]);
+      console.log();
 
       return {
+        success: true,
         data,
         meta: {
-          page,
-          limit,
+          page: safePage,
+          limit: safeLimit,
           total,
-          totalPages: Math.ceil(total / limit),
+          totalPages: Math.ceil(total / safeLimit),
         },
       };
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error('member-requests.service.list error:', {
-          message: error.message,
-          stack: error.stack,
-          somiteeId,
-          page,
-          limit,
-        });
-      } else {
-        console.error('member-requests.service.list unknown error:', error);
-      }
+    } catch (error) {
+      console.error('member-requests.list error:', {
+        message: error instanceof Error ? error.message : error,
+      });
 
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Failed to list');
+      throw new InternalServerErrorException('Failed to list members');
     }
   }
 
-  async approve(id: number | string, userId: number, somiteeId: number, body: any) {
-    try {
-      const requestId = Number(id);
-      const request = await this.prisma.memberRequest.findFirst({
-        where: {id: requestId, somiteeId},
+  // ====================== APPROVE MEMBER REQUEST ======================
+  // Note: This endpoint approves a member request. The service will handle moving the request to the members table and any related logic.
+  // The request body can include an optional note and actionType for audit purposes. The service will also record who approved the request and when.
+  // Example: PATCH /members/requests/123/approve with body { "note": "Verified all documents, approved", "actionType": "manual approval" }
+  async approve(id: number, userId: number, somiteeId: number) {
+    const requestId = Number(id);
+
+    if (isNaN(requestId)) {
+      throw new BadRequestException('Invalid request id');
+    }
+
+    return await this.prisma.$transaction(async (tx) => {
+      // =========================
+      // 1. FIND REQUEST
+      // =========================
+      const request = await tx.memberRequest.findFirst({
+        where: {
+          id: requestId,
+          somiteeId,
+        },
       });
+
       if (!request) {
         throw new NotFoundException('Member request not found');
       }
 
-      const member = await this.prisma.member.create({
+      if (request.status === 'approved') {
+        throw new BadRequestException('Already approved');
+      }
+
+      // =========================
+      // 3. CREATE MEMBER
+      // =========================
+      const member = await tx.member.create({
         data: {
           name: request.nameEn || request.nameBn,
           shopName: request.shopName,
           phone: request.mobile,
-          address:
-            `${request.village || ''}, ${request.union || ''}, ${request.upazila || ''}, ${request.district || ''}`.replace(
-              /^, |, $/,
-              '',
-            ),
           nid: request.nid,
           monthlyFee: request.monthlyFee,
           billingCycle: request.billingCycle,
           somiteeId: request.somiteeId,
           createdById: userId,
+
+          address: [request.village, request.union, request.upazila, request.district]
+            .filter(Boolean)
+            .join(', '),
         },
       });
 
-      await this.prisma.memberRequest.update({
+      // =========================
+      // 4. UPDATE REQUEST
+      // =========================
+      await tx.memberRequest.update({
         where: {id: requestId},
         data: {
           status: 'approved',
           approvedAt: new Date(),
           approvedBy: userId,
+          memberId: member.id,
         },
       });
 
       return {
-        requestId: request.id,
+        success: true,
+        requestId,
         memberId: member.id,
         status: 'approved',
         approvedAt: new Date(),
       };
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error('member-requests.service.approve error:', {
-          message: error.message,
-          stack: error.stack,
-          id,
-          somiteeId,
-          body,
-        });
-      } else {
-        console.error('member-requests.service.approve unknown error:', error);
-      }
-
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Failed to approve');
-    }
+    });
   }
 
-  async reject(id: number | string, userId: number, somiteeId: number, body: any) {
+  // ====================== REJECT MEMBER REQUEST ======================
+  // Note: This endpoint rejects a member request. The service will update the request status to 'rejected' and record who rejected it and when, along with an optional rejection note.
+  // Example: PATCH /members/requests/123/reject with body { "rejectionNote": "Documents are invalid / mismatch NID" }
+
+  async reject(id: number, userId: number, somiteeId: number, dto: RejectMemberRequestDto) {
     try {
       const requestId = Number(id);
-      const request = await this.prisma.memberRequest.findFirst({
-        where: {id: requestId, somiteeId},
-      });
-      if (!request) {
-        throw new NotFoundException('Member request not found');
+
+      if (isNaN(requestId)) {
+        throw new BadRequestException('Invalid request id');
       }
 
-      await this.prisma.memberRequest.update({
-        where: {id: requestId},
-        data: {
-          status: 'rejected',
-          rejectedAt: new Date(),
-          rejectionNote: body.rejectionNote,
-        },
-      });
-
-      return {id: requestId, status: 'rejected', rejectedAt: new Date()};
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error('member-requests.service.reject error:', {
-          message: error.message,
-          stack: error.stack,
-          id,
-          somiteeId,
-          body,
+      return await this.prisma.$transaction(async (tx) => {
+        // ======================
+        // 1. FIND REQUEST
+        // ======================
+        const request = await tx.memberRequest.findFirst({
+          where: {
+            id: requestId,
+            somiteeId,
+          },
         });
-      } else {
-        console.error('member-requests.service.reject unknown error:', error);
-      }
 
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
+        if (!request) {
+          throw new NotFoundException('Member request not found');
+        }
+
+        // ======================
+        // 2. STATUS CHECK (OPTIONAL BUT IMPORTANT)
+        // ======================
+        if (request.status === 'approved') {
+          throw new BadRequestException('Already approved request cannot be rejected');
+        }
+
+        // ======================
+        // 3. UPDATE REQUEST
+        // ======================
+        const updated = await tx.memberRequest.update({
+          where: {id: requestId},
+          data: {
+            status: 'rejected',
+            rejectedAt: new Date(),
+            updatedById: userId,
+            rejectionNote: dto.rejectionNote ?? null,
+          },
+        });
+
+        return {
+          success: true,
+          id: updated.id,
+          status: updated.status,
+          rejectedAt: updated.rejectedAt,
+          rejectionNote: updated.rejectionNote,
+        };
+      });
+    } catch (error) {
+      console.error('member-requests.service.reject error:', {
+        message: error instanceof Error ? error.message : error,
+        id,
+        somiteeId,
+        dto,
+      });
+
+      if (error instanceof NotFoundException) throw error;
+      if (error instanceof BadRequestException) throw error;
 
       throw new InternalServerErrorException('Failed to reject');
     }
   }
+
+  //  ====================== DELETE MEMBER REQUEST ======================
+  // Note: This endpoint deletes a member request. This is a hard delete, so use with caution. The service will handle the deletion logic and any related cleanup.
+  // Example: DELETE /members/requests/123
 
   async remove(id: number | string, somiteeId: number) {
     try {
@@ -421,6 +529,98 @@ export class MemberRequestsService {
       }
 
       throw new InternalServerErrorException('Failed to remove');
+    }
+  }
+
+  // ====================== GET MEMBER REQUEST STATUS COUNTS ======================
+  // Note: This endpoint returns the count of member requests by status (pending, approved, rejected) for a given somitee. This is useful for dashboard statistics.
+  // Example: GET /members/requests/status-counts?somiteeId=123
+
+  async getRequestStatusCounts(somiteeId: number) {
+    try {
+      const numericSomiteeId = Number(somiteeId);
+
+      if (isNaN(numericSomiteeId)) {
+        throw new BadRequestException('Invalid somiteeId');
+      }
+
+      const [pending, approved, rejected] = await Promise.all([
+        this.prisma.memberRequest.count({
+          where: {
+            somiteeId: numericSomiteeId,
+            status: 'pending',
+          },
+        }),
+        this.prisma.memberRequest.count({
+          where: {
+            somiteeId: numericSomiteeId,
+            status: 'approved',
+          },
+        }),
+        this.prisma.memberRequest.count({
+          where: {
+            somiteeId: numericSomiteeId,
+            status: 'rejected',
+          },
+        }),
+      ]);
+
+      return {
+        success: true,
+        data: {
+          pending,
+          approved,
+          rejected,
+          total: pending + approved + rejected,
+        },
+      };
+    } catch (error: unknown) {
+      console.error('memberRequest.count error:', {
+        message: error instanceof Error ? error.message : error,
+        somiteeId,
+      });
+
+      throw new InternalServerErrorException('Failed to get counts');
+    }
+  }
+
+  // ====================== GET SINGLE MEMBER REQUEST BY ID ======================
+  // Note: This endpoint retrieves the details of a single member request by its ID. The service will handle fetching the request and ensuring it belongs to the correct somitee.
+  // Example: GET /members/requests/123
+  async getRequestById(id: number, somiteeId: number) {
+    try {
+      const requestId = Number(id);
+
+      if (isNaN(requestId)) {
+        throw new BadRequestException('Invalid request id');
+      }
+
+      const request = await this.prisma.memberRequest.findFirst({
+        where: {
+          id: requestId,
+          somiteeId: Number(somiteeId),
+        },
+      });
+
+      if (!request) {
+        throw new NotFoundException('Member request not found');
+      }
+
+      return {
+        success: true,
+        data: request,
+      };
+    } catch (error: unknown) {
+      console.error('memberRequest.getById error:', {
+        message: error instanceof Error ? error.message : error,
+        id,
+        somiteeId,
+      });
+
+      if (error instanceof NotFoundException) throw error;
+      if (error instanceof BadRequestException) throw error;
+
+      throw new InternalServerErrorException('Failed to fetch request');
     }
   }
 }
