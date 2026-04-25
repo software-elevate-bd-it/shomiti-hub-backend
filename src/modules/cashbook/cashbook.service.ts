@@ -5,21 +5,44 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {PrismaService} from '../../prisma/prisma.service';
+import {ListCashbookQueryDto} from './dto/list-cashbook-query.dto';
 
 @Injectable()
 export class CashbookService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(somiteeId: number, query: any) {
+  async list(somiteeId: number, query: ListCashbookQueryDto) {
     try {
       const page = Number(query.page || 1);
       const limit = Number(query.limit || 20);
-      const where: any = {somiteeId};
+
+      const where: any = {
+        somiteeId,
+      };
+
+      // ======================
+      // SEARCH
+      // ======================
+      if (query.search) {
+        where.OR = [
+          {description: {contains: query.search}},
+          {referenceType: {contains: query.search}},
+          {referenceId: {contains: query.search}},
+        ];
+      }
+
+      // ======================
+      // DATE FILTER
+      // ======================
       if (query.dateFrom || query.dateTo) {
         where.date = {};
         if (query.dateFrom) where.date.gte = new Date(query.dateFrom);
         if (query.dateTo) where.date.lte = new Date(query.dateTo);
       }
+
+      // ======================
+      // QUERY
+      // ======================
       const [data, total] = await Promise.all([
         this.prisma.cashBookEntry.findMany({
           where,
@@ -29,58 +52,62 @@ export class CashbookService {
         }),
         this.prisma.cashBookEntry.count({where}),
       ]);
-      return {data, meta: {page, limit, total, totalPages: Math.ceil(total / limit)}};
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error('cashbook.service.service.list error:', {
-          message: error.message,
-          stack: error.stack,
-          somiteeId: somiteeId,
-          query: query,
-        });
-      } else {
-        console.error('cashbook.service.service.list unknown error:', error);
-      }
 
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Failed to list');
+      return {
+        success: true,
+        data,
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      console.error('cashbook.list error:', error);
+      throw new InternalServerErrorException('Failed to list cashbook');
     }
   }
 
-  async summary() {
+  async summary(somiteeId: number, query: ListCashbookQueryDto) {
     try {
+      const where: any = {somiteeId};
+
+      if (query.dateFrom || query.dateTo) {
+        where.date = {};
+        if (query.dateFrom) where.date.gte = new Date(query.dateFrom);
+        if (query.dateTo) where.date.lte = new Date(query.dateTo);
+      }
+
+      const [cashIn, cashOut] = await Promise.all([
+        this.prisma.cashBookEntry.aggregate({
+          where,
+          _sum: {cashIn: true},
+        }),
+        this.prisma.cashBookEntry.aggregate({
+          where,
+          _sum: {cashOut: true},
+        }),
+      ]);
+
+      const totalCashIn = cashIn._sum.cashIn || 0;
+      const totalCashOut = cashOut._sum.cashOut || 0;
+
       return {
-        totalCashIn: 0,
-        totalCashOut: 0,
-        cashInHand: 0,
-        period: {from: null, to: null},
+        success: true,
+        data: {
+          totalCashIn,
+          totalCashOut,
+          cashInHand: totalCashIn - totalCashOut,
+        },
+        period: {
+          from: query.dateFrom || null,
+          to: query.dateTo || null,
+        },
       };
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error('cashbook.service.service.summary error:', {
-          message: error.message,
-          stack: error.stack,
-        });
-      } else {
-        console.error('cashbook.service.service.summary unknown error:', error);
-      }
-
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Failed to summary');
+    } catch (error) {
+      console.error('cashbook.summary error:', error);
+      throw new InternalServerErrorException('Failed to get cashbook summary');
     }
   }
 }
