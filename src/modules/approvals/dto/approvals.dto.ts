@@ -18,9 +18,3 @@ export class CreateApprovalDto {
   @IsObject()
   payload!: any;
 }
-
-export class ApproveRejectDto {
-  @IsOptional()
-  @IsString()
-  note?: string;
-}

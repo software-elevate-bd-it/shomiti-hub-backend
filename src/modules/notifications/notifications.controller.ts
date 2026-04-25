@@ -2,25 +2,33 @@ import {Controller, Get, Param, Patch, Query, UseGuards} from '@nestjs/common';
 import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
 import {CurrentUser} from '../../common/decorators/user.decorator';
 import {NotificationsService} from './notifications.service';
-import {ApiTags} from '@nestjs/swagger';
+import {ApiTags, ApiBearerAuth, ApiOperation} from '@nestjs/swagger';
+import {ListNotificationDto} from './dto/list-notification.dto';
 
 @ApiTags('Notifications')
+@ApiBearerAuth('Authorization')
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
 export class NotificationsController {
   constructor(private readonly service: NotificationsService) {}
 
   @Get()
-  async list(@CurrentUser('somiteeId') somiteeId: number, @Query() query: any) {
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({summary: 'Get notifications list'})
+  async list(@CurrentUser('somiteeId') somiteeId: number, @Query() query: ListNotificationDto) {
     return this.service.list(somiteeId, query);
   }
 
   @Patch(':id/read')
-  async markRead(@Param('id') id: number, @CurrentUser('somiteeId') somiteeId: number) {
-    return this.service.markRead(id, somiteeId);
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({summary: 'Mark notification as read'})
+  async markRead(@Param('id') id: string, @CurrentUser('somiteeId') somiteeId: number) {
+    return this.service.markRead(Number(id), somiteeId);
   }
 
   @Patch('read-all')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({summary: 'Mark all notifications as read'})
   async markAllRead(@CurrentUser('somiteeId') somiteeId: number) {
     return this.service.markAllRead(somiteeId);
   }

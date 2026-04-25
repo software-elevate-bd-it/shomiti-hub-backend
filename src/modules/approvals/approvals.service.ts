@@ -5,22 +5,27 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { CreateApprovalDto, ApproveRejectDto } from './dto/approvals.dto';
+import {PrismaService} from '../../prisma/prisma.service';
+import {ApprovalType, GetApprovalsDto} from './dto/get-appovals.dto';
+import {ApproveRejectDto} from './dto/approve-reject.dto';
+import {CreateApprovalDto} from './dto/create-approval.dto';
 
 @Injectable()
 export class ApprovalsService {
   constructor(private prisma: PrismaService) {}
 
-  async getApprovals(somiteeId: number, query: any = {}) {
+  // Get
+  async getApprovals(somiteeId: number, query: GetApprovalsDto) {
     try {
-      const { status = 'pending', type, createdBy, page = 1, limit = 20 } = query;
-      const skip = (page - 1) * limit;
+      const {status = 'pending', type, createdBy, page = 1, limit = 20} = query;
 
-      const where: any = { somiteeId };
+      const skip = (Number(page) - 1) * Number(limit);
+
+      const where: any = {somiteeId};
+
       if (status !== 'all') where.status = status;
       if (type) where.type = type;
-      if (createdBy) where.createdById = createdBy;
+      if (createdBy) where.createdById = Number(createdBy);
 
       const [approvals, total] = await Promise.all([
         this.prisma.approval.findMany({
@@ -31,7 +36,7 @@ export class ApprovalsService {
           },
           orderBy: {createdAt: 'desc'},
           skip,
-          take: limit,
+          take: Number(limit),
         }),
         this.prisma.approval.count({where}),
       ]);
@@ -47,8 +52,9 @@ export class ApprovalsService {
         approved: 0,
         rejected: 0,
       };
-      counts.forEach((count: any) => {
-        statusCounts[count.status as keyof typeof statusCounts] = count._count;
+
+      counts.forEach((c: any) => {
+        statusCounts[c.status as keyof typeof statusCounts] = c._count;
       });
 
       return {
@@ -63,21 +69,17 @@ export class ApprovalsService {
       };
     } catch (error: unknown) {
       if (error instanceof Error) {
-        console.error('approvals.service.service.getApprovals error:', {
+        console.error('approvals.service.getApprovals error:', {
           message: error.message,
           stack: error.stack,
-          somiteeId: somiteeId,
-          query: query,
+          somiteeId,
+          query,
         });
       } else {
-        console.error('approvals.service.service.getApprovals unknown error:', error);
+        console.error('approvals.service.getApprovals unknown error:', error);
       }
 
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      if (error instanceof BadRequestException) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
       }
 
@@ -129,52 +131,54 @@ export class ApprovalsService {
     somiteeId: number,
   ) {
     try {
-      // Check user permissions for the action type
-      const permissionMap = {
+      const permissionMap: Record<ApprovalType, string> = {
         collection: 'collection.create',
         expense: 'expense.create',
         bank: 'bank.create',
         member: 'member.create',
       };
 
-      const requiredPermission = permissionMap[dto.type as keyof typeof permissionMap];
+      const requiredPermission = permissionMap[dto.type];
+
+      if (!requiredPermission) {
+        throw new BadRequestException('Invalid approval type');
+      }
+
       const hasPermission = await this.checkUserPermission(userId, requiredPermission);
+
       if (!hasPermission) {
         throw new ForbiddenException(`Missing permission: ${requiredPermission}`);
       }
 
-      const approval = await this.prisma.approval.create({
+      const user = await this.prisma.user.findUnique({
+        where: {id: userId},
+        select: {name: true},
+      });
+
+      const createdByName = user?.name ?? 'Unknown User';
+
+      return await this.prisma.approval.create({
         data: {
           type: dto.type,
           title: dto.title,
           amount: dto.amount,
           description: dto.description,
           payload: dto.payload,
-          createdById: userId,
-          createdByName: userName,
-          somiteeId,
+
+          createdById: BigInt(userId), // ✅ FIX
+          createdByName: createdByName,
+
+          somiteeId: BigInt(somiteeId), // ✅ FIX
         },
       });
-      return approval;
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error('approvals.service.service.createApproval error:', {
-          message: error.message,
-          stack: error.stack,
-          dto: dto,
-          userId: userId,
-          userName: userName,
-          somiteeId: somiteeId,
-        });
-      } else {
-        console.error('approvals.service.service.createApproval unknown error:', error);
-      }
+      console.error('approvals.createApproval error:', error);
 
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      if (error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
 
@@ -191,8 +195,12 @@ export class ApprovalsService {
   ) {
     try {
       const approval = await this.prisma.approval.findFirst({
-        where: {id, somiteeId},
+        where: {
+          id: BigInt(id),
+          somiteeId: BigInt(somiteeId),
+        },
       });
+
       if (!approval) {
         throw new NotFoundException('Approval not found');
       }
@@ -201,71 +209,49 @@ export class ApprovalsService {
         throw new BadRequestException('Approval is not in pending status');
       }
 
-      // Check reviewer permissions
-      const permissionMap = {
+      // Permission map
+      const permissionMap: Record<string, string> = {
         collection: 'collection.approve',
         expense: 'expense.approve',
         bank: 'bank.approve',
         member: 'member.approve',
       };
 
-      const requiredPermission = permissionMap[approval.type as keyof typeof permissionMap];
+      const requiredPermission = permissionMap[approval.type];
+
+      if (!requiredPermission) {
+        throw new BadRequestException('Invalid approval type');
+      }
+
       const hasPermission = await this.checkUserPermission(reviewerId, requiredPermission);
+
       if (!hasPermission) {
         throw new ForbiddenException(`Missing permission: ${requiredPermission}`);
       }
 
-      // Update approval
+      // Create record first (safer flow)
+      const createdRecordId = await this.createRecordFromApproval(approval);
+
       const updatedApproval = await this.prisma.approval.update({
-        where: {id},
+        where: {id: BigInt(id)},
         data: {
           status: 'approved',
-          reviewedById: reviewerId,
-          reviewedByName: reviewerName,
+          reviewedById: BigInt(reviewerId),
+          reviewedByName: reviewerName ?? 'Unknown',
           reviewedAt: new Date(),
+          createdRecordId: createdRecordId ?? null,
         },
       });
 
-      // Create the actual record based on type
-      let createdRecordId: string | null = null;
-      try {
-        createdRecordId = await this.createRecordFromApproval(approval);
-      } catch (error) {
-        // If record creation fails, we should probably mark as rejected or handle error
-        console.error('Failed to create record from approval:', error);
-      }
-
-      if (createdRecordId) {
-        await this.prisma.approval.update({
-          where: {id},
-          data: {createdRecordId},
-        });
-      }
-
-      return {
-        ...updatedApproval,
-        createdRecordId,
-      };
+      return updatedApproval;
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error('approvals.service.service.approveApproval error:', {
-          message: error.message,
-          stack: error.stack,
-          id: id,
-          dto: dto,
-          reviewerId: reviewerId,
-          reviewerName: reviewerName,
-          somiteeId: somiteeId,
-        });
-      } else {
-        console.error('approvals.service.service.approveApproval unknown error:', error);
-      }
+      console.error('approvals.approveApproval error:', error);
 
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      if (error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
 
@@ -351,10 +337,21 @@ export class ApprovalsService {
 
   async getApprovalStats(somiteeId: number) {
     try {
+      const sid = BigInt(Number(somiteeId));
+
+      if (Number.isNaN(Number(somiteeId))) {
+        throw new BadRequestException('Invalid somiteeId');
+      }
+
       const counts = await this.prisma.approval.groupBy({
         by: ['type'],
-        where: {somiteeId, status: 'pending'},
-        _count: true,
+        where: {
+          somiteeId: sid,
+          status: 'pending',
+        },
+        _count: {
+          _all: true,
+        },
       });
 
       const stats = {
@@ -367,28 +364,23 @@ export class ApprovalsService {
         },
       };
 
-      counts.forEach((count: any) => {
-        stats.byType[count.type as keyof typeof stats.byType] = count._count;
-        stats.totalPending += count._count;
-      });
+      for (const item of counts) {
+        const type = item.type as keyof typeof stats.byType;
+
+        const count = item._count?._all ?? 0;
+
+        if (type in stats.byType) {
+          stats.byType[type] = count;
+        }
+
+        stats.totalPending += count;
+      }
 
       return stats;
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error('approvals.service.service.getApprovalStats error:', {
-          message: error.message,
-          stack: error.stack,
-          somiteeId: somiteeId,
-        });
-      } else {
-        console.error('approvals.service.service.getApprovalStats unknown error:', error);
-      }
+      console.error('approvals.getApprovalStats error:', error);
 
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      if (error instanceof BadRequestException) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
       }
 

@@ -7,7 +7,7 @@ import {IncomeVsExpenseDto} from './dto/income-vs-expense.dto';
 import {CashFlowDto} from './dto/cash-flow.dto';
 import {MemberDuesDto} from './dto/member-dues.dto';
 import {BankVsCashDto} from './dto/bank-vs-cash.dto';
-import { CollectionReportDto } from './dto/collection-report.dto';
+import {CollectionReportDto} from './dto/collection-report.dto';
 
 @ApiTags('Reports')
 @ApiBearerAuth('Authorization')

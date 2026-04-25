@@ -1,20 +1,27 @@
 import {Controller, Get, Post, Patch, Param, Body, Query, UseGuards} from '@nestjs/common';
 import {ApprovalsService} from './approvals.service';
-import {CreateApprovalDto, ApproveRejectDto} from './dto/approvals.dto';
+
 import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
 import {RolesGuard} from '../../common/guards/roles.guard';
 import {CurrentUser} from '../../common/decorators/user.decorator';
-import {ApiTags} from '@nestjs/swagger';
+import {ApiTags, ApiBearerAuth, ApiOperation} from '@nestjs/swagger';
+import {GetApprovalsDto} from './dto/get-appovals.dto';
+import {CreateApprovalDto} from './dto/create-approval.dto';
+import {ApproveRejectDto} from './dto/approve-reject.dto';
 
 @ApiTags('Approvals')
+@ApiBearerAuth('Authorization')
 @Controller('approvals')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ApprovalsController {
   constructor(private readonly approvalsService: ApprovalsService) {}
 
   @Get()
-  async getApprovals(@Query() query: any, @CurrentUser() user: any) {
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({summary: 'Get approvals list'})
+  async getApprovals(@Query() query: GetApprovalsDto, @CurrentUser() user: any) {
     const result = await this.approvalsService.getApprovals(user.somiteeId, query);
+
     return {
       success: true,
       statusCode: 200,
@@ -25,17 +32,15 @@ export class ApprovalsController {
   }
 
   @Get(':id')
-  async getApproval(@Param('id') id: number, @CurrentUser() user: any) {
-    const approval = await this.approvalsService.getApproval(id, user.somiteeId);
-    return {
-      success: true,
-      statusCode: 200,
-      message: 'Approval retrieved',
-      data: approval,
-    };
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({summary: 'Get approval single data'})
+  async getApproval(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.approvalsService.getApproval(Number(id), user.somiteeId);
   }
 
   @Post()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({summary: 'Get approval single data'})
   async createApproval(@Body() dto: CreateApprovalDto, @CurrentUser() user: any) {
     const approval = await this.approvalsService.createApproval(
       dto,
@@ -43,6 +48,7 @@ export class ApprovalsController {
       user.name,
       user.somiteeId,
     );
+
     return {
       success: true,
       statusCode: 201,
@@ -52,18 +58,21 @@ export class ApprovalsController {
   }
 
   @Patch(':id/approve')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({summary: 'Approve approval'})
   async approveApproval(
     @Param('id') id: number,
     @Body() dto: ApproveRejectDto,
     @CurrentUser() user: any,
   ) {
     const approval = await this.approvalsService.approveApproval(
-      id,
+      Number(id),
       dto,
       user.id,
       user.name,
       user.somiteeId,
     );
+
     return {
       success: true,
       statusCode: 200,
@@ -73,6 +82,8 @@ export class ApprovalsController {
   }
 
   @Patch(':id/reject')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({summary: 'Reject approval'})
   async rejectApproval(
     @Param('id') id: number,
     @Body() dto: ApproveRejectDto,
@@ -94,8 +105,11 @@ export class ApprovalsController {
   }
 
   @Get('stats')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({summary: 'Get approval stats'})
   async getApprovalStats(@CurrentUser() user: any) {
     const stats = await this.approvalsService.getApprovalStats(user.somiteeId);
+
     return {
       success: true,
       statusCode: 200,
