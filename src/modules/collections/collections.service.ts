@@ -634,18 +634,18 @@ export class CollectionsService {
       // ======================
       // 1. FIND MEMBER
       // ======================
-      const memberRequest = await this.prisma.memberRequest.findFirst({
+      const member = await this.prisma.member.findFirst({
         where: {
-          memberRegNumber: BigInt(body.memberId),
+          id: BigInt(body.memberId),
           somiteeId: BigInt(somiteeId),
         },
       });
 
-      if (!memberRequest?.memberId) {
+      if (!member?.id) {
         throw new NotFoundException('Member not found or not approved');
       }
 
-      const memberId = memberRequest.memberId;
+      const memberId = member.id;
 
       // ======================
       // 2. VALIDATION
@@ -716,7 +716,7 @@ export class CollectionsService {
         const transaction = await tx.transaction.create({
           data: {
             memberId: BigInt(memberId),
-            memberName: memberRequest.nameBn || memberRequest.nameEn || '',
+            memberName: member.name || member.name || '',
             type: 'collection',
             amount,
             date: new Date(body.date),
