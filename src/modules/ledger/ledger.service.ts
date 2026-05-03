@@ -17,11 +17,11 @@ export class LedgerService {
       const limit = Number(query.limit || 20);
 
       const where: any = {
-        somiteeId,
+        somiteeId: BigInt(somiteeId),
       };
 
       // ======================
-      // SEARCH (GLOBAL)
+      // SEARCH
       // ======================
       if (query.search) {
         where.OR = [
@@ -58,13 +58,55 @@ export class LedgerService {
           skip: (page - 1) * limit,
           take: limit,
           orderBy: {date: 'desc'},
+
+          // 🔥 ADD RELATIONS
+          include: {
+            member: {
+              select: {
+                id: true,
+                name: true,
+                shopName: true,
+              },
+            },
+            createdBy: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
         }),
+
         this.prisma.ledgerEntry.count({where}),
       ]);
 
+      // ======================
+      // ENRICH DATA (SMART NAME LOGIC)
+      // ======================
+      const formatted = data.map((item) => {
+        let memberName = 'Unknown';
+        let sourceLabel = '';
+
+        if (item.member?.name) {
+          memberName = item.member.name;
+          sourceLabel = 'Member';
+        } else if (item.memberName) {
+          memberName = item.memberName;
+          sourceLabel = 'Member';
+        } else if (item.createdBy?.name) {
+          memberName = item.createdBy.name;
+          sourceLabel = 'System User';
+        }
+
+        return {
+          ...item,
+          memberName: sourceLabel ? `${memberName} (${sourceLabel})` : memberName,
+        };
+      });
+
       return {
         success: true,
-        data,
+        data: formatted,
         meta: {
           page,
           limit,

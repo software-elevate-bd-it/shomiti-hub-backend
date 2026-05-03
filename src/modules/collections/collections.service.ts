@@ -101,7 +101,7 @@ export class CollectionsService {
       };
 
       // ======================
-      // SEARCH (member name / transactionId)
+      // SEARCH
       // ======================
       if (query.search) {
         where.OR = [
@@ -123,7 +123,7 @@ export class CollectionsService {
       if (query.method) where.method = query.method;
       if (query.category) where.category = query.category;
 
-      // memberId (REG NUMBER → MEMBER → ID)
+      // memberId filter
       if (query.memberId) {
         const memberReq = await this.prisma.memberRequest.findFirst({
           where: {
@@ -135,11 +135,11 @@ export class CollectionsService {
         if (memberReq?.memberId) {
           where.memberId = memberReq.memberId;
         } else {
-          // no match → return empty
           return {
             success: true,
             data: [],
             meta: {page, limit, total: 0, totalPages: 0},
+            totalCollection: 0, // 🔥 added
           };
         }
       }
@@ -156,7 +156,7 @@ export class CollectionsService {
       // ======================
       // QUERY
       // ======================
-      const [data, total] = await Promise.all([
+      const [data, total, totalCollectionAgg] = await Promise.all([
         this.prisma.payment.findMany({
           where,
           include: {
@@ -167,18 +167,24 @@ export class CollectionsService {
                 phone: true,
               },
             },
-            paymentItems: true, // 🔥 important for multi-month
+            paymentItems: true,
           },
           skip: (page - 1) * limit,
           take: limit,
           orderBy: {paymentDate: 'desc'},
         }),
+
         this.prisma.payment.count({where}),
+
+        // 🔥 TOTAL COLLECTION (NEW)
+        this.prisma.payment.aggregate({
+          where,
+          _sum: {
+            amount: true,
+          },
+        }),
       ]);
 
-      // ======================
-      // RESPONSE FORMAT (aligned with API)
-      // ======================
       const formatted = data.map((p) => ({
         id: p.id,
         memberId: p.memberId,
@@ -191,7 +197,7 @@ export class CollectionsService {
         note: p.note,
         financialYear: p.financialYear,
         date: p.paymentDate,
-        months: p.paymentItems.map((i) => i.month), // 🔥 key part
+        months: p.paymentItems.map((i) => i.month),
         createdAt: p.createdAt,
       }));
 
@@ -204,6 +210,9 @@ export class CollectionsService {
           total,
           totalPages: Math.ceil(total / limit),
         },
+
+        // 🔥 NEW FIELD
+        totalCollection: totalCollectionAgg._sum.amount || 0,
       };
     } catch (error: unknown) {
       console.error('collections.list error:', {
