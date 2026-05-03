@@ -83,34 +83,38 @@ export class PaymentsService {
   async verify(id: number, somiteeId: number, body: VerifyPaymentDto) {
     try {
       const payment = await this.prisma.payment.findFirst({
-        where: {id, somiteeId},
+        where: {
+          id: BigInt(id),
+          somiteeId: BigInt(somiteeId),
+        },
       });
 
+      console.log('Found payment:', payment);
+
       if (!payment) {
-        throw new NotFoundException('Payment not found');
+        throw new NotFoundException(`Payment ${id} not found`);
       }
 
       const cacheKey = this.cacheService.key(somiteeId, 'payments');
       await this.cacheService.del(cacheKey);
 
-      return this.prisma.payment.update({
-        where: {id},
+      return await this.prisma.payment.update({
+        where: {
+          id: BigInt(id),
+        },
         data: {
           status: body.status,
           note: body.note,
           verifiedAt: new Date(),
         },
       });
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error('payments.verify error:', {
-          message: error.message,
-          stack: error.stack,
-          id,
-          somiteeId,
-          body,
-        });
+    } catch (error) {
+      // preserve Nest exceptions
+      if (error instanceof NotFoundException) {
+        throw error;
       }
+
+      console.error('payments.verify error:', error);
 
       throw new InternalServerErrorException('Failed to verify payment');
     }
