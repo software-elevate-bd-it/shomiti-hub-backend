@@ -20,15 +20,7 @@ export class ApprovalsController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({summary: 'Get approvals list'})
   async getApprovals(@Query() query: GetApprovalsDto, @CurrentUser() user: any) {
-    const result = await this.approvalsService.getApprovals(user.somiteeId, query);
-
-    return {
-      success: true,
-      statusCode: 200,
-      message: 'Approvals retrieved',
-      data: result.data,
-      meta: result.meta,
-    };
+    return await this.approvalsService.getApprovals(user.somiteeId, query);
   }
 
   @Get(':id')

@@ -21,29 +21,96 @@ export class ApprovalsService {
 
       const skip = (Number(page) - 1) * Number(limit);
 
-      const where: any = {somiteeId};
+      const where: any = {
+        somiteeId: BigInt(somiteeId),
+      };
 
+      // ======================
+      // FILTERS
+      // ======================
       if (status !== 'all') where.status = status;
       if (type) where.type = type;
       if (createdBy) where.createdById = Number(createdBy);
 
-      const [approvals, total] = await Promise.all([
-        this.prisma.approval.findMany({
-          where,
-          include: {
-            createdBy: {select: {id: true, name: true}},
-            reviewedBy: {select: {id: true, name: true}},
-          },
-          orderBy: {createdAt: 'desc'},
-          skip,
-          take: Number(limit),
-        }),
-        this.prisma.approval.count({where}),
-      ]);
+      // ======================
+      // MAIN QUERY
+      // ======================
+      const [approvals, total, paymentAgg, expenseAgg, bankAgg, memberTotal, pendingMembers] =
+        await Promise.all([
+          this.prisma.approval.findMany({
+            where,
+            include: {
+              createdBy: {select: {id: true, name: true}},
+              reviewedBy: {select: {id: true, name: true}},
+            },
+            orderBy: {createdAt: 'desc'},
+            skip,
+            take: Number(limit),
+          }),
 
+          this.prisma.approval.count({where}),
+
+          // ======================
+          // TOTAL COLLECTION
+          // ======================
+          this.prisma.payment.aggregate({
+            where: {
+              somiteeId: BigInt(somiteeId),
+              status: 'approved',
+            },
+            _sum: {amount: true},
+          }),
+
+          // ======================
+          // TOTAL EXPENSE
+          // ======================
+          this.prisma.expense.aggregate({
+            where: {
+              somiteeId: BigInt(somiteeId),
+              status: 'approved',
+            },
+            _sum: {amount: true},
+          }),
+
+          // ======================
+          // BANK TRANSACTION
+          // ======================
+          this.prisma.bankTransaction.aggregate({
+            where: {
+              somiteeId: BigInt(somiteeId),
+            },
+            _sum: {amount: true},
+          }),
+
+          // ======================
+          // TOTAL MEMBERS
+          // ======================
+          this.prisma.memberRequest.count({
+            where: {
+              somiteeId: BigInt(somiteeId),
+              status: 'approved',
+            },
+          }),
+
+          // ======================
+          // PENDING MEMBERS
+          // ======================
+          this.prisma.memberRequest.count({
+            where: {
+              somiteeId: BigInt(somiteeId),
+              status: 'pending',
+            },
+          }),
+        ]);
+
+      // ======================
+      // STATUS COUNTS
+      // ======================
       const counts = await this.prisma.approval.groupBy({
         by: ['status'],
-        where: {somiteeId},
+        where: {
+          somiteeId: BigInt(somiteeId),
+        },
         _count: true,
       });
 
@@ -57,14 +124,24 @@ export class ApprovalsService {
         statusCounts[c.status as keyof typeof statusCounts] = c._count;
       });
 
+      // ======================
+      // RESPONSE
+      // ======================
       return {
         data: approvals,
+
+        totalCollection: paymentAgg?._sum?.amount ?? 0,
+        totalExpense: expenseAgg?._sum?.amount ?? 0,
+        bankTransaction: bankAgg?._sum?.amount ?? 0,
+
+        totalMembers: memberTotal,
+        pendingMembers: pendingMembers,
+
         meta: {
-          page: Number(page),
-          limit: Number(limit),
+          page,
+          limit,
           total,
           totalPages: Math.ceil(total / limit),
-          counts: statusCounts,
         },
       };
     } catch (error: unknown) {
