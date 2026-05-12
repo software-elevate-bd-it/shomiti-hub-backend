@@ -241,7 +241,7 @@ model MemberRequest {
   shopName String @map("shop_name")
 
   // Identification
-  nid String @unique
+  nid   String? @unique // Optional and Unique
 
   // Nominee
   nomineeName     String @map("nominee_name")

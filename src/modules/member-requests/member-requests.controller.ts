@@ -74,15 +74,11 @@ export class MemberRequestsController {
         'bloodGroup',
         'mobile',
         'shopName',
-        'nid',
         'nomineeName',
         'nomineeRelation',
         'nomineeNid',
         'monthlyFee',
         'profileImage',
-        'nidFront',
-        'nidBack',
-        'signature',
       ],
       properties: {
         // ======================
