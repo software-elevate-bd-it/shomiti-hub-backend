@@ -246,7 +246,7 @@ model MemberRequest {
   // Nominee
   nomineeName     String @map("nominee_name")
   nomineeRelation String @map("nominee_relation")
-  nomineeNid      String @map("nominee_nid")
+  nomineeNid      String? @map("nominee_nid")
 
   // Financial
   monthlyFee   Int    @map("monthly_fee")

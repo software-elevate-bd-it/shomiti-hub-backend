@@ -75,8 +75,6 @@ export class MemberRequestsController {
         'mobile',
         'shopName',
         'nomineeName',
-        'nomineeRelation',
-        'nomineeNid',
         'monthlyFee',
         'profileImage',
       ],
