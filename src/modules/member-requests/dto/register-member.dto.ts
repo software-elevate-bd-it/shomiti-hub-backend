@@ -10,6 +10,7 @@ import {
   MinLength,
   MaxLength,
   IsIn,
+  IsEmpty,
 } from 'class-validator';
 
 export class RegisterMemberDto {
@@ -106,7 +107,7 @@ export class RegisterMemberDto {
 
   // Identification
   @ApiProperty({example: '1234567890123', description: 'National ID number'})
-  @IsNotEmpty()
+  @IsEmpty()
   @IsString()
   @Matches(/^\d{10,17}$/, {message: 'NID must be 10-17 digits'})
   nid!: string;
@@ -114,16 +115,16 @@ export class RegisterMemberDto {
   // Nominee Information
   @ApiProperty({example: 'রহিমা বেগম', description: 'Nominee name'})
   @IsNotEmpty()
-  @IsString()
+  @IsEmpty()
   nomineeName!: string;
 
   @ApiProperty({example: 'স্ত্রী', description: 'Nominee relation'})
   @IsNotEmpty()
-  @IsString()
+  @IsEmpty()
   nomineeRelation!: string;
 
   @ApiProperty({example: '9876543210123', description: 'Nominee NID'})
-  @IsNotEmpty()
+  @IsEmpty()
   @IsString()
   @Matches(/^\d{10,17}$/, {message: 'Nominee NID must be 10-17 digits'})
   nomineeNid!: string;

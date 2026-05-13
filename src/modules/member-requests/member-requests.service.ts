@@ -388,7 +388,6 @@ export class MemberRequestsService {
           name: request.nameEn || request.nameBn,
           shopName: request.shopName,
           phone: request.mobile,
-          nid: request.nid,
           monthlyFee: request.monthlyFee,
           billingCycle: request.billingCycle,
           somiteeId: request.somiteeId,

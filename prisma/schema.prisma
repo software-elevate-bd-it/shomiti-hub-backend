@@ -170,7 +170,7 @@ model Member {
   shopName String       @map("shop_name")
   phone    String
   address  String?
-  nid      String       @unique
+  nid      String?       @unique
   status   MemberStatus @default(active)
 
   somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
