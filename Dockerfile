@@ -1,31 +1,37 @@
 FROM node:20-slim AS builder
 
-# ✅ FIX: all packages inside RUN
-
 RUN apt-get update && apt-get install -y \
-  python3 \
-  make \
-  g++ \
-  openssl \
-  curl \
-  && rm -rf /var/lib/apt/lists/*
+    openssl \
+    python3 \
+    make \
+    g++ \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
+# dependencies
 COPY package*.json ./
-COPY prisma ./prisma
-
 RUN npm install
-RUN npx prisma generate
 
+# source
 COPY . .
 
+# prisma
+RUN npx prisma generate
+
+# nest build
 RUN npm run build
+
+# production deps only
 RUN npm prune --omit=dev
 
-# ================= RUNNER =================
 
+# ===== runtime =====
 FROM node:20-slim
+
+RUN apt-get update && apt-get install -y openssl \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -36,6 +42,7 @@ COPY --from=builder /app/package*.json ./
 
 ENV NODE_ENV=production
 
-EXPOSE 3000
+EXPOSE 4000
 
-CMD ["npm", "run", "start:prod"]
+CMD sh -c "npx prisma db push && node prisma/seed.js && node dist/main"
+# CMD sh -c "node prisma/seed.js"

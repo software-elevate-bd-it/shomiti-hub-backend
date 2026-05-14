@@ -34,7 +34,7 @@ export class MemberRequestsService {
     userId: number,
     somiteeId: number,
   ) {
-    const requiredFiles = ['profileImage', 'nidFront', 'nidBack', 'signature'] as const;
+    const requiredFiles = ['profileImage'] as const;
 
     try {
       // =====================================================
@@ -56,12 +56,16 @@ export class MemberRequestsService {
       // 2. CHECK DUPLICATES (BEFORE DB INSERT)
       // =====================================================
 
-      const existingRequest = await this.prisma.memberRequest.findUnique({
-        where: {nid: dto.nid},
-      });
+      if (dto.nid) {
+        const existingNid = await this.prisma.memberRequest.findUnique({
+          where: {
+            nid: dto.nid,
+          },
+        });
 
-      if (existingRequest) {
-        throw new BadRequestException('NID already exists');
+        if (existingNid) {
+          throw new BadRequestException('NID already exists');
+        }
       }
 
       const existingMemberId = await this.prisma.memberRequest.findUnique({
@@ -354,7 +358,7 @@ export class MemberRequestsService {
   // Note: This endpoint approves a member request. The service will handle moving the request to the members table and any related logic.
   // The request body can include an optional note and actionType for audit purposes. The service will also record who approved the request and when.
   // Example: PATCH /members/requests/123/approve with body { "note": "Verified all documents, approved", "actionType": "manual approval" }
-  async approve(id: number, userId: number, somiteeId: number) {
+  async approveOld(id: number, userId: number, somiteeId: number) {
     const requestId = Number(id);
 
     if (isNaN(requestId)) {
@@ -420,6 +424,215 @@ export class MemberRequestsService {
         approvedAt: new Date(),
       };
     });
+  }
+
+  async approve(id: number, userId: number, somiteeId: number) {
+    try {
+      const requestId = Number(id);
+
+      if (isNaN(requestId)) {
+        throw new BadRequestException('Invalid request id');
+      }
+
+      return await this.prisma.$transaction(async (tx) => {
+        try {
+          // =========================
+          // 1. FIND REQUEST
+          // =========================
+          const request = await tx.memberRequest.findFirst({
+            where: {
+              id: BigInt(requestId),
+              somiteeId: BigInt(somiteeId),
+            },
+          });
+
+          if (!request) {
+            throw new NotFoundException('Member request not found');
+          }
+
+          if (request.status === 'approved') {
+            throw new BadRequestException('Already approved');
+          }
+
+          const feeAmount = request.monthlyFee;
+          const now = new Date();
+
+          // =========================
+          // 2. CREATE MEMBER
+          // =========================
+          const member = await tx.member.create({
+            data: {
+              name: request.nameEn || request.nameBn,
+              shopName: request.shopName,
+              phone: request.mobile,
+
+              monthlyFee: request.monthlyFee,
+              billingCycle: request.billingCycle,
+
+              somiteeId: request.somiteeId,
+              createdById: BigInt(userId),
+
+              address: [request.village, request.union, request.upazila, request.district]
+                .filter(Boolean)
+                .join(', '),
+            },
+          });
+
+          console.log('member created:', member.id);
+
+          // =========================
+          // 3. TRANSACTION
+          // =========================
+          await tx.transaction.create({
+            data: {
+              memberId: member.id,
+              memberName: member.name,
+
+              type: 'credit',
+              category: 'member_joining_fee',
+
+              amount: feeAmount,
+
+              date: now,
+              method: 'system',
+              status: 'approved',
+
+              somiteeId: BigInt(somiteeId),
+              createdById: BigInt(userId),
+            },
+          });
+
+          console.log('transaction created');
+
+          // =========================
+          // 4. LEDGER
+          // =========================
+          await tx.ledgerEntry.create({
+            data: {
+              date: now,
+
+              description: `Member joining fee - ${member.name}`,
+
+              type: 'credit',
+              credit: feeAmount,
+              balance: feeAmount,
+
+              memberId: member.id,
+              memberName: member.name,
+
+              referenceType: 'member',
+              referenceId: member.id.toString(),
+
+              somiteeId: BigInt(somiteeId),
+              createdById: BigInt(userId),
+            },
+          });
+
+          console.log('ledger created');
+
+          // =========================
+          // 5. CASHBOOK
+          // =========================
+          await tx.cashBookEntry.create({
+            data: {
+              date: now,
+
+              description: `Member joining fee - ${member.name}`,
+
+              cashIn: feeAmount,
+              cashOut: 0,
+              balance: feeAmount,
+
+              referenceType: 'member',
+              referenceId: member.id.toString(),
+
+              somiteeId: BigInt(somiteeId),
+              createdById: BigInt(userId),
+            },
+          });
+
+          console.log('cashbook created');
+
+          // =========================
+          // 6. STATS
+          // =========================
+          const startOfDay = new Date(now);
+          startOfDay.setHours(0, 0, 0, 0);
+
+          const existingStats = await tx.statsSummary.findFirst({
+            where: {
+              somiteeId: BigInt(somiteeId),
+              periodType: 'daily',
+              date: startOfDay,
+            },
+          });
+
+          if (existingStats) {
+            await tx.statsSummary.update({
+              where: {
+                id: existingStats.id,
+              },
+              data: {
+                totalCollection: {
+                  increment: feeAmount,
+                },
+              },
+            });
+          } else {
+            await tx.statsSummary.create({
+              data: {
+                date: startOfDay,
+
+                totalCollection: feeAmount,
+                totalExpense: 0,
+                totalDue: 0,
+
+                periodType: 'daily',
+
+                somiteeId: BigInt(somiteeId),
+                createdById: BigInt(userId),
+              },
+            });
+          }
+
+          console.log('stats updated');
+
+          // =========================
+          // 7. REQUEST UPDATE
+          // =========================
+          await tx.memberRequest.update({
+            where: {
+              id: BigInt(requestId),
+            },
+            data: {
+              status: 'approved',
+              approvedAt: now,
+              approvedBy: BigInt(userId),
+              memberId: member.id,
+            },
+          });
+
+          console.log('request updated');
+
+          return {
+            success: true,
+            memberId: member.id.toString(),
+          };
+        } catch (error) {
+          console.error('Transaction error:', error);
+
+          throw error;
+        }
+      });
+    } catch (error) {
+      console.error('approve() error:', error);
+
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to approve member');
+    }
   }
 
   // ====================== REJECT MEMBER REQUEST ======================

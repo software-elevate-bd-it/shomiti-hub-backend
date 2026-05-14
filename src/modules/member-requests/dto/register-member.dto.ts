@@ -1,138 +1,132 @@
 import {ApiProperty, ApiPropertyOptional} from '@nestjs/swagger';
 import {Type} from 'class-transformer';
 import {
+  IsDateString,
+  IsIn,
   IsNotEmpty,
-  IsString,
   IsNumber,
   IsOptional,
-  IsDateString,
+  IsString,
   Matches,
-  MinLength,
-  MaxLength,
-  IsIn,
-  IsEmpty,
 } from 'class-validator';
 
 export class RegisterMemberDto {
-  // Personal Information
-
-  // Financial Information
-  @ApiProperty({
-    example: 10001,
-    description: 'Unique member ID (auto-generated, ignore in request)',
-  })
-  @IsNotEmpty()
-  @IsNumber()
+  @ApiProperty({example: 10001})
   @Type(() => Number)
+  @IsNumber()
   memberRegNumber!: number;
 
-  @ApiProperty({example: 'করিম মিয়া', description: 'Name in Bengali'})
-  @IsNotEmpty()
+  @ApiProperty({example: 'করিম উদ্দিন'})
   @IsString()
+  @IsNotEmpty()
   nameBn!: string;
 
-  @ApiProperty({example: 'Karim Mia', description: 'Name in English'})
-  @IsNotEmpty()
+  @ApiProperty({example: 'Karim Uddin'})
   @IsString()
+  @IsNotEmpty()
   nameEn!: string;
 
-  @ApiProperty({example: 'আব্দুল করিম', description: "Father's name"})
-  @IsNotEmpty()
+  @ApiProperty({example: 'আব্দুল হক'})
   @IsString()
+  @IsNotEmpty()
   fatherName!: string;
 
-  @ApiProperty({example: 'ফাতেমা বেগম', description: "Mother's name"})
-  @IsNotEmpty()
+  @ApiProperty({example: 'রহিমা বেগম'})
   @IsString()
+  @IsNotEmpty()
   motherName!: string;
 
-  @ApiProperty({example: '1990-05-15', description: 'Date of birth'})
-  @IsNotEmpty()
+  @ApiProperty({
+    example: '1990-05-15',
+  })
   @IsDateString()
   dob!: string;
 
-  @ApiProperty({example: 'বাংলাদেশী', description: 'Nationality'})
-  @IsNotEmpty()
+  @ApiProperty({example: 'Bangladeshi'})
   @IsString()
   nationality!: string;
 
-  @ApiProperty({example: 'ইসলাম', description: 'Religion'})
-  @IsNotEmpty()
+  @ApiProperty({example: 'Islam'})
   @IsString()
   religion!: string;
 
-  @ApiProperty({example: 'B+', description: 'Blood group'})
-  @IsNotEmpty()
-  @IsString()
+  @ApiProperty({
+    example: 'B+',
+    enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+  })
   @IsIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])
   bloodGroup!: string;
 
-  // Contact Information
-  @ApiProperty({example: '01712345678', description: 'Mobile number'})
-  @IsNotEmpty()
-  @IsString()
-  @Matches(/^(\+880|880|0)1[3-9]\d{8}$/, {message: 'Valid Bangladesh mobile number required'})
+  @ApiProperty({
+    example: '01712345678',
+  })
+  @Matches(/^(\+880|880|0)1[3-9]\d{8}$/)
   mobile!: string;
 
-  @ApiPropertyOptional({example: 'বানানী', description: 'Village'})
-  @IsOptional()
-  @IsString()
-  village?: string;
-
-  @ApiPropertyOptional({example: '5', description: 'Ward number'})
-  @IsOptional()
-  @IsString()
-  wardNo?: string;
-
-  @ApiPropertyOptional({example: 'বানানী', description: 'Union'})
-  @IsOptional()
-  @IsString()
-  union?: string;
-
-  @ApiPropertyOptional({example: 'গুলশান', description: 'Upazila'})
-  @IsOptional()
-  @IsString()
-  upazila?: string;
-
-  @ApiPropertyOptional({example: 'ঢাকা', description: 'District'})
-  @IsOptional()
-  @IsString()
-  district?: string;
-
-  // Business Information
-  @ApiProperty({example: 'করিম ইলেকট্রনিক্স', description: 'Shop name'})
-  @IsNotEmpty()
+  @ApiProperty({
+    example: 'Karim Electronics',
+  })
   @IsString()
   shopName!: string;
 
-  // Identification
-  @ApiProperty({example: '1234567890123', description: 'National ID number'})
-  @IsEmpty()
+  @ApiPropertyOptional({
+    example: '1234567890123',
+  })
+  @IsOptional()
   @IsString()
-  @Matches(/^\d{10,17}$/, {message: 'NID must be 10-17 digits'})
-  nid!: string;
+  nid?: string;
 
-  // Nominee Information
-  @ApiProperty({example: 'রহিমা বেগম', description: 'Nominee name'})
-  @IsNotEmpty()
-  @IsEmpty()
-  nomineeName!: string;
-
-  @ApiProperty({example: 'স্ত্রী', description: 'Nominee relation'})
-  @IsNotEmpty()
-  @IsEmpty()
-  nomineeRelation!: string;
-
-  @ApiProperty({example: '9876543210123', description: 'Nominee NID'})
-  @IsEmpty()
+  @ApiPropertyOptional({
+    example: 'সালমা আক্তার',
+  })
+  @IsOptional()
   @IsString()
-  @Matches(/^\d{10,17}$/, {message: 'Nominee NID must be 10-17 digits'})
-  nomineeNid!: string;
+  nomineeName?: string;
 
-  // Financial Information
-  @ApiProperty({example: 500, description: 'Monthly fee'})
-  @IsNotEmpty()
-  @IsNumber()
+  @ApiPropertyOptional({
+    example: 'Wife',
+  })
+  @IsOptional()
+  @IsString()
+  nomineeRelation?: string;
+
+  @ApiPropertyOptional({
+    example: '9876543210123',
+  })
+  @IsOptional()
+  @IsString()
+  nomineeNid?: string;
+
+  @ApiProperty({
+    example: 500,
+  })
   @Type(() => Number)
+  @IsNumber()
   monthlyFee!: number;
+
+  // FILES
+
+  @ApiProperty({
+    type: 'string',
+    format: 'binary',
+  })
+  profileImage!: any;
+
+  @ApiPropertyOptional({
+    type: 'string',
+    format: 'binary',
+  })
+  nidFront?: any;
+
+  @ApiPropertyOptional({
+    type: 'string',
+    format: 'binary',
+  })
+  nidBack?: any;
+
+  @ApiPropertyOptional({
+    type: 'string',
+    format: 'binary',
+  })
+  signature?: any;
 }

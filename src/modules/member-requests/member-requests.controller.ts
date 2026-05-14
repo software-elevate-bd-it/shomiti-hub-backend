@@ -42,6 +42,7 @@ export class MemberRequestsController {
   // This allows users to save incomplete drafts without needing to upload files immediately.
   //  The service layer will handle the logic to differentiate between a full registration and a draft, and validate accordingly.
   //  The API documentation will reflect the required fields for registration and optional fields for draft saving.
+
   @Post('register')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
@@ -53,151 +54,14 @@ export class MemberRequestsController {
         {name: 'signature', maxCount: 1},
       ],
       {
-        storage: multer.memoryStorage(), // ✅ FIX: enables file.buffer
+        storage: multer.memoryStorage(), // IMPORTANT
       },
     ),
   )
-  @ApiOperation({summary: 'Submit a new member registration with images'})
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      required: [
-        'memberRegNumber',
-        'nameBn',
-        'nameEn',
-        'fatherName',
-        'motherName',
-        'dob',
-        'nationality',
-        'religion',
-        'bloodGroup',
-        'mobile',
-        'shopName',
-        'nomineeName',
-        'monthlyFee',
-        'profileImage',
-      ],
-      properties: {
-        // ======================
-        // PERSONAL INFO
-        // ======================
-        memberRegNumber: {
-          type: 'number',
-          example: 10001,
-          description: 'Unique member registration number (auto-generated, ignore in request)',
-        },
-
-        nameBn: {
-          type: 'string',
-          example: 'করিম মিয়া',
-          description: 'Full name in Bangla',
-        },
-        nameEn: {
-          type: 'string',
-          example: 'Karim Mia',
-        },
-        fatherName: {
-          type: 'string',
-          example: 'আব্দুল করিম',
-        },
-        motherName: {
-          type: 'string',
-          example: 'ফাতেমা বেগম',
-        },
-        dob: {
-          type: 'string',
-          format: 'date',
-          example: '1990-05-15',
-        },
-        nationality: {
-          type: 'string',
-          example: 'বাংলাদেশী',
-        },
-        religion: {
-          type: 'string',
-          example: 'ইসলাম',
-        },
-        bloodGroup: {
-          type: 'string',
-          enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
-          example: 'B+',
-        },
-
-        // ======================
-        // CONTACT INFO
-        // ======================
-        mobile: {
-          type: 'string',
-          example: '01712345678',
-          pattern: '^01[3-9]\\d{8}$',
-        },
-        shopName: {
-          type: 'string',
-          example: 'করিম ইলেকট্রনিক্স',
-        },
-
-        // ======================
-        // IDENTIFICATION
-        // ======================
-        nid: {
-          type: 'string',
-          example: '1234567890123',
-        },
-
-        // ======================
-        // NOMINEE INFO
-        // ======================
-        nomineeName: {
-          type: 'string',
-          example: 'রহিমা বেগম',
-        },
-        nomineeRelation: {
-          type: 'string',
-          example: 'স্ত্রী',
-        },
-        nomineeNid: {
-          type: 'string',
-          example: '9876543210123',
-        },
-
-        // ======================
-        // FINANCIAL
-        // ======================
-        monthlyFee: {
-          type: 'number',
-          example: 500,
-          minimum: 0,
-        },
-
-        // ======================
-        // FILES
-        // ======================
-        profileImage: {
-          type: 'string',
-          format: 'binary',
-          description: 'Upload profile image (jpg/png)',
-        },
-        nidFront: {
-          type: 'string',
-          format: 'binary',
-          description: 'Upload NID front image',
-        },
-        nidBack: {
-          type: 'string',
-          format: 'binary',
-          description: 'Upload NID back image',
-        },
-        signature: {
-          type: 'string',
-          format: 'binary',
-          description: 'Upload signature image',
-        },
-      },
-    },
-  })
   async register(
     @Body() dto: RegisterMemberDto,
+
     @UploadedFiles()
     files: {
       profileImage?: Express.Multer.File[];
@@ -205,9 +69,13 @@ export class MemberRequestsController {
       nidBack?: Express.Multer.File[];
       signature?: Express.Multer.File[];
     },
+
     @CurrentUser('id') userId: number,
     @CurrentUser('somiteeId') somiteeId: number,
   ) {
+    console.log('BODY=', dto);
+    console.log('FILES=', files);
+
     return this.service.registerWithImages(dto, files, userId, somiteeId);
   }
 

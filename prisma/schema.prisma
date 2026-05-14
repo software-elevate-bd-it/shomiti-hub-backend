@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -207,29 +208,33 @@ enum MemberStatus {
 }
 
 model MemberRequest {
-  id       BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  id BigInt @id @default(autoincrement()) @db.UnsignedBigInt
 
-   // 🔗 Relation to Member (after approval)
+  // =========================
+  // RELATION
+  // =========================
   memberId BigInt? @unique @map("member_id") @db.UnsignedBigInt
   member   Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
 
-
   memberRegNumber BigInt? @unique @map("member_reg_number") @db.UnsignedBigInt
 
+  status RequestStatus @default(pending)
 
-  status   RequestStatus @default(pending)
-
-  // Personal Information
-  nameBn      String   @map("name_bn")
-  nameEn      String   @map("name_en")
-  fatherName  String   @map("father_name")
-  motherName  String   @map("mother_name")
+  // =========================
+  // PERSONAL INFO
+  // =========================
+  nameBn      String @map("name_bn")
+  nameEn      String @map("name_en")
+  fatherName  String @map("father_name")
+  motherName  String @map("mother_name")
   dob         DateTime @map("date_of_birth")
   nationality String
   religion    String
-  bloodGroup  String   @map("blood_group")
+  bloodGroup  String @map("blood_group")
 
-  // Contact Information
+  // =========================
+  // CONTACT
+  // =========================
   mobile   String
   village  String?
   wardNo   String? @map("ward_no")
@@ -237,29 +242,41 @@ model MemberRequest {
   upazila  String?
   district String?
 
-  // Business Information
+  // =========================
+  // BUSINESS
+  // =========================
   shopName String @map("shop_name")
 
-  // Identification
-  nid   String? @unique // Optional and Unique
+  // =========================
+  // IDENTIFICATION (FIXED)
+  // =========================
+  nid String? @unique
 
-  // Nominee
-  nomineeName     String @map("nominee_name")
-  nomineeRelation String @map("nominee_relation")
+  // =========================
+  // NOMINEE (FIXED - IMPORTANT)
+  // =========================
+  nomineeName     String? @map("nominee_name")
+  nomineeRelation String? @map("nominee_relation")
   nomineeNid      String? @map("nominee_nid")
 
-  // Financial
-  monthlyFee   Int    @map("monthly_fee")
+  // =========================
+  // FINANCIAL
+  // =========================
+  monthlyFee   Int @map("monthly_fee")
   billingCycle String @default("monthly") @map("billing_cycle")
 
-  // Images
+  // =========================
+  // IMAGES
+  // =========================
   profileImageUrl String? @map("profile_image_url")
   nidFrontUrl     String? @map("nid_front_url")
   nidBackUrl      String? @map("nid_back_url")
   signatureUrl    String? @map("signature_url")
 
-  // Metadata
-  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  // =========================
+  // METADATA
+  // =========================
+  somiteeId BigInt @map("somitee_id") @db.UnsignedBigInt
   somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
 
   createdById BigInt @map("created_by_id") @db.UnsignedBigInt
@@ -268,7 +285,9 @@ model MemberRequest {
   updatedById BigInt? @map("updated_by_id") @db.UnsignedBigInt
   updatedBy   User?   @relation("MemberRequestUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
-  // Approval Info
+  // =========================
+  // APPROVAL FLOW
+  // =========================
   rejectionNote String?   @map("rejection_note")
   approvedAt    DateTime? @map("approved_at")
   approvedBy    BigInt?   @map("approved_by") @db.UnsignedBigInt
@@ -282,7 +301,6 @@ model MemberRequest {
   @@index([createdById])
   @@map("member_requests")
 }
-
 enum RequestStatus {
   pending
   approved
