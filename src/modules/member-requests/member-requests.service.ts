@@ -89,12 +89,17 @@ export class MemberRequestsService {
       // =====================================================
       return await this.prisma.$transaction(async (tx) => {
         // 3.1 Create DB record
+        const registrationFee =
+          dto.registrationFee != null ? dto.registrationFee : (dto.monthlyFee ?? 0);
+
         const request = await tx.memberRequest.create({
           data: {
             ...dto,
             dob: new Date(dto.dob),
             somiteeId,
             createdById: userId,
+            registrationFee,
+            monthlyFee: dto.monthlyFee ?? 0,
           },
         });
 
@@ -392,7 +397,7 @@ export class MemberRequestsService {
           name: request.nameEn || request.nameBn,
           shopName: request.shopName,
           phone: request.mobile,
-          monthlyFee: request.monthlyFee,
+          monthlyFee: request.monthlyFee ?? 0,
           billingCycle: request.billingCycle,
           somiteeId: request.somiteeId,
           createdById: userId,
@@ -454,7 +459,12 @@ export class MemberRequestsService {
             throw new BadRequestException('Already approved');
           }
 
-          const feeAmount = request.monthlyFee;
+          // const feeAmount = request.monthlyFee;
+          const monthlyFee = request.monthlyFee ?? 0;
+          const registrationFee = request.registrationFee ?? monthlyFee;
+
+          const feeAmount = registrationFee;
+
           const now = new Date();
 
           // =========================
@@ -466,7 +476,7 @@ export class MemberRequestsService {
               shopName: request.shopName,
               phone: request.mobile,
 
-              monthlyFee: request.monthlyFee,
+              monthlyFee: request.monthlyFee ?? 0,
               billingCycle: request.billingCycle,
 
               somiteeId: request.somiteeId,

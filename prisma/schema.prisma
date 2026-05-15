@@ -162,16 +162,16 @@ enum SomiteeStatus {
 }
 
 model Member {
-  id       BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  id BigInt @id @default(autoincrement()) @db.UnsignedBigInt
 
   // 🔥 link back to request
-  request  MemberRequest?
+  request MemberRequest?
 
   name     String
   shopName String       @map("shop_name")
   phone    String
   address  String?
-  nid      String?       @unique
+  nid      String?      @unique
   status   MemberStatus @default(active)
 
   somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
@@ -223,14 +223,14 @@ model MemberRequest {
   // =========================
   // PERSONAL INFO
   // =========================
-  nameBn      String @map("name_bn")
-  nameEn      String @map("name_en")
-  fatherName  String @map("father_name")
-  motherName  String @map("mother_name")
+  nameBn      String   @map("name_bn")
+  nameEn      String   @map("name_en")
+  fatherName  String   @map("father_name")
+  motherName  String   @map("mother_name")
   dob         DateTime @map("date_of_birth")
   nationality String
   religion    String
-  bloodGroup  String @map("blood_group")
+  bloodGroup  String   @map("blood_group")
 
   // =========================
   // CONTACT
@@ -259,11 +259,9 @@ model MemberRequest {
   nomineeRelation String? @map("nominee_relation")
   nomineeNid      String? @map("nominee_nid")
 
-  // =========================
-  // FINANCIAL
-  // =========================
-  monthlyFee   Int @map("monthly_fee")
-  billingCycle String @default("monthly") @map("billing_cycle")
+  monthlyFee      Int?   @map("monthly_fee")
+  registrationFee Int?   @map("registration_fee")
+  billingCycle    String @default("monthly") @map("billing_cycle")
 
   // =========================
   // IMAGES
@@ -276,7 +274,7 @@ model MemberRequest {
   // =========================
   // METADATA
   // =========================
-  somiteeId BigInt @map("somitee_id") @db.UnsignedBigInt
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
   somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
 
   createdById BigInt @map("created_by_id") @db.UnsignedBigInt
@@ -301,6 +299,7 @@ model MemberRequest {
   @@index([createdById])
   @@map("member_requests")
 }
+
 enum RequestStatus {
   pending
   approved

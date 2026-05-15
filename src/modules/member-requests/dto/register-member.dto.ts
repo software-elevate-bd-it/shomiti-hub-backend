@@ -101,8 +101,17 @@ export class RegisterMemberDto {
     example: 500,
   })
   @Type(() => Number)
+  @IsOptional()
   @IsNumber()
-  monthlyFee!: number;
+  registrationFee?: number;
+
+  @ApiProperty({
+    example: 500,
+  })
+  @Type(() => Number)
+  @IsOptional()
+  @IsNumber()
+  monthlyFee?: number;
 
   // FILES
 
