@@ -90,6 +90,10 @@ model User {
   status    UserStatus @default(active)
   isManaged Boolean    @default(false) @map("is_managed")
 
+  // Income relations
+incomesCreated Income[] @relation("IncomeCreatedBy")
+incomesUpdated Income[] @relation("IncomeUpdatedBy")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -146,6 +150,7 @@ model Somitee {
   notifications    Notification[]
   activityLogs     ActivityLog[]
   companySettings  CompanySettings[]
+  incomes Income[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -641,6 +646,7 @@ model BankAccount {
   updatedBy   User?   @relation("BankAccountUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   transactions BankTransaction[]
+  incomes Income[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -831,4 +837,71 @@ enum ApprovalStatus {
   pending
   approved
   rejected
+}
+
+
+model Income {
+  id BigInt @id @default(autoincrement()) @db.UnsignedBigInt
+
+  title       String
+  description String? @db.LongText
+
+  type IncomeType
+
+  amount Int
+
+  incomeDate DateTime @map("income_date")
+
+  referenceNo String? @map("reference_no")
+
+  source String?
+  note   String? @db.LongText
+
+  status IncomeStatus @default(received)
+
+  // =========================
+  // BANK ACCOUNT (OPTIONAL)
+  // =========================
+  bankAccountId BigInt?      @map("bank_account_id") @db.UnsignedBigInt
+  bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+
+  // =========================
+  // SOMITEE
+  // =========================
+  somiteeId BigInt  @map("somitee_id") @db.UnsignedBigInt
+  somitee   Somitee @relation(fields: [somiteeId], references: [id], onDelete: Cascade)
+
+  // =========================
+  // USER TRACKING
+  // =========================
+  createdById BigInt @map("created_by_id") @db.UnsignedBigInt
+  createdBy   User   @relation("IncomeCreatedBy", fields: [createdById], references: [id])
+
+  updatedById BigInt? @map("updated_by_id") @db.UnsignedBigInt
+  updatedBy   User?   @relation("IncomeUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([somiteeId])
+  @@index([bankAccountId])
+  @@index([incomeDate])
+  @@index([type])
+  @@map("incomes")
+}
+enum IncomeType {
+  fixed_deposit_interest
+  bank_interest
+  donation
+  investment_profit
+  office_rent
+  service_charge
+  late_fee
+  registration_fee
+  other
+}
+enum IncomeStatus {
+  pending
+  received
+  cancelled
 }

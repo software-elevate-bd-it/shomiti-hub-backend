@@ -115,11 +115,11 @@ export class RegisterMemberDto {
 
   // FILES
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     type: 'string',
     format: 'binary',
   })
-  profileImage!: any;
+  profileImage?: any;
 
   @ApiPropertyOptional({
     type: 'string',

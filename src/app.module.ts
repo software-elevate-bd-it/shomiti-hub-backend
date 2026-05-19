@@ -30,6 +30,7 @@ import {CacheRedisModule} from './modules/cache/cache.module';
 import {RolesModule} from './modules/roles/roles.module';
 import {ApprovalsModule} from './modules/approvals/approvals.module';
 import {UsersModule} from './modules/users/users.module';
+import {IncomeModule} from './modules/income/income.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import {UsersModule} from './modules/users/users.module';
     RolesModule,
     ApprovalsModule,
     UsersModule,
+    IncomeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

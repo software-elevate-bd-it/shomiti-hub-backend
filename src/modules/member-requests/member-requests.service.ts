@@ -34,22 +34,22 @@ export class MemberRequestsService {
     userId: number,
     somiteeId: number,
   ) {
-    const requiredFiles = ['profileImage'] as const;
+    const requiredFiles = [] as const;
+
+    const optionalFiles = ['profileImage', 'nidFront', 'nidBack', 'signature'] as const;
 
     try {
       // =====================================================
       // 1. VALIDATE & MAP FILES
       // =====================================================
-      const fileMap: Record<(typeof requiredFiles)[number], Express.Multer.File> = {} as any;
+      const fileMap: Partial<Record<string, Express.Multer.File>> = {};
 
-      for (const field of requiredFiles) {
-        const file = files[field]?.[0];
+      for (const field of optionalFiles) {
+        const file = files?.[field]?.[0] as Express.Multer.File | undefined;
 
-        if (!file) {
-          throw new BadRequestException(`${field} is required`);
+        if (file) {
+          fileMap[field] = file;
         }
-
-        fileMap[field] = file;
       }
 
       // =====================================================
@@ -114,17 +114,17 @@ export class MemberRequestsService {
 
         const uploadedFiles: Record<string, string> = {};
 
-        // =====================================================
-        // 3.3 SAVE FILES
-        // =====================================================
-        for (const field of requiredFiles) {
+        for (const field of optionalFiles) {
           const file = fileMap[field];
 
-          if (!file?.buffer) {
+          if (!file) continue; // ✅ SKIP if not uploaded
+
+          if (!file.buffer) {
             throw new BadRequestException(`${field} buffer missing`);
           }
 
-          const ext = file.mimetype.split('/')[1];
+          const ext = file.mimetype?.split('/')[1] || 'jpg';
+
           const fileName = `${field}-${Date.now()}.${ext}`;
           const filePath = path.join(uploadDir, fileName);
 
