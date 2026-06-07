@@ -235,7 +235,7 @@ model MemberRequest {
   dob         DateTime @map("date_of_birth")
   nationality String
   religion    String
-  bloodGroup  String   @map("blood_group")
+  bloodGroup  String?   @map("blood_group")
 
   // =========================
   // CONTACT
