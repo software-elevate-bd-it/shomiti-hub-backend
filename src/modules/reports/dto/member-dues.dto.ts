@@ -1,15 +1,15 @@
 import {ApiPropertyOptional} from '@nestjs/swagger';
-import {IsOptional, IsString, IsNumberString} from 'class-validator';
+import {IsOptional, IsString, IsNumber} from 'class-validator';
 
 export class MemberDuesDto {
   @ApiPropertyOptional({example: 1})
   @IsOptional()
-  @IsNumberString()
+  @IsNumber()
   page?: number;
 
   @ApiPropertyOptional({example: 10})
   @IsOptional()
-  @IsNumberString()
+  @IsNumber()
   limit?: number;
 
   @ApiPropertyOptional({
