@@ -27,4 +27,13 @@ export class MemberDuesDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  // ✅ NEW FIELD
+  @ApiPropertyOptional({
+    example: '2025-2026',
+    description: 'Financial Year (e.g. 2021-2022)',
+  })
+  @IsOptional()
+  @IsString()
+  financialYear?: string;
 }

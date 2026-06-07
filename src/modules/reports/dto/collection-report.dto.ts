@@ -1,15 +1,15 @@
 import {ApiPropertyOptional} from '@nestjs/swagger';
-import {IsOptional, IsNumberString, IsString} from 'class-validator';
+import {IsOptional, IsNumberString, IsString, IsNumber} from 'class-validator';
 
 export class CollectionReportDto {
   @ApiPropertyOptional({example: 1})
   @IsOptional()
-  @IsNumberString()
+  @IsNumber()
   page?: number;
 
   @ApiPropertyOptional({example: 10})
   @IsOptional()
-  @IsNumberString()
+  @IsNumber()
   limit?: number;
 
   @ApiPropertyOptional({example: '2026-01-01'})
@@ -36,4 +36,10 @@ export class CollectionReportDto {
   @IsOptional()
   @IsNumberString()
   memberId?: number;
+
+  // 🔥 NEW
+  @ApiPropertyOptional({example: '2025-2026'})
+  @IsOptional()
+  @IsString()
+  financialYear?: string;
 }

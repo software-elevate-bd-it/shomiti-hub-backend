@@ -165,10 +165,41 @@ export class ReportsService {
   // search should look into member name, phone, and shop name
   // Results should be sorted by total due amount in descending order
 
+  // ======================
+  // FY HELPER (July - June)
+  // ======================
+  private getFinancialYear(date: Date): string {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+
+    return month >= 7 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+  }
+
+  // ======================
+  // FY LIST GENERATOR
+  // ======================
+  private generateFinancialYears(startYear = 2021): string[] {
+    const currentFY = this.getFinancialYear(new Date());
+    const [currentStart] = currentFY.split('-').map(Number);
+
+    const years: string[] = [];
+
+    for (let year = startYear; year <= currentStart; year++) {
+      years.push(`${year}-${year + 1}`);
+    }
+
+    return years;
+  }
+
+  // ======================
+  // MEMBER DUES REPORT
+  // ======================
   async memberDues(somiteeId: number, query: MemberDuesDto) {
     try {
       const page = Number(query.page || 1);
       const limit = Number(query.limit || 10);
+
+      const skip = (page - 1) * limit;
 
       const where: any = {
         somiteeId: BigInt(somiteeId),
@@ -186,10 +217,13 @@ export class ReportsService {
         ];
       }
 
-      const [members, total, paymentAgg] = await Promise.all([
+      // ==============================
+      // GET MEMBERS
+      // ==============================
+      const [members, total, paymentItems] = await Promise.all([
         this.prisma.member.findMany({
           where,
-          skip: (page - 1) * limit,
+          skip,
           take: limit,
           orderBy: {totalDue: 'desc'},
           select: {
@@ -204,60 +238,111 @@ export class ReportsService {
 
         this.prisma.member.count({where}),
 
-        this.prisma.paymentItem.groupBy({
-          by: ['memberId'],
+        this.prisma.paymentItem.findMany({
           where: {
             somiteeId: BigInt(somiteeId),
           },
-          _sum: {
+          select: {
+            memberId: true,
             amount: true,
+            financialYear: true,
           },
         }),
       ]);
 
-      // ======================
-      // PAID MAP
-      // ======================
-      const paidMap = new Map<number, number>();
+      // ==============================
+      // GROUP PAYMENT BY MEMBER + FY
+      // ==============================
+      const paymentMap = new Map<string, number>();
 
-      paymentAgg.forEach((p) => {
-        paidMap.set(Number(p.memberId), p._sum.amount || 0);
+      paymentItems.forEach((p) => {
+        const key = `${p.memberId}-${p.financialYear}`;
+        paymentMap.set(key, (paymentMap.get(key) || 0) + (p.amount || 0));
       });
 
+      // ==============================
+      // FY GENERATOR (July - June)
+      // ==============================
+      const getFinancialYears = () => {
+        const startYear = 2021;
+        const currentYear = new Date().getFullYear();
+
+        const fyList: string[] = [];
+
+        for (let y = startYear; y <= currentYear; y++) {
+          fyList.push(`${y}-${y + 1}`);
+        }
+
+        return fyList;
+      };
+
+      const financialYears = getFinancialYears();
+
+      // ==============================
+      // SUMMARY
+      // ==============================
       let totalDue = 0;
       let fullyPaidCount = 0;
 
-      // ======================
-      // ENRICH MEMBERS
-      // ======================
       const enrichedMembers = members.map((m) => {
-        const paid = paidMap.get(Number(m.id)) || 0;
+        const monthlyFee = m.monthlyFee || 0;
+        const expectedPerFY = monthlyFee * 12;
 
-        const amount = m.monthlyFee || 0; // 🔥 EXPECTED AMOUNT
-        const due = Math.max(amount - paid, 0);
+        let totalPaidAllFY = 0;
 
-        totalDue += due;
+        const fyBreakdown = financialYears.map((fy) => {
+          const key = `${m.id}-${fy}`;
+          const paid = paymentMap.get(key) || 0;
 
-        if (due === 0) {
+          totalPaidAllFY += paid;
+
+          const due = Math.max(expectedPerFY - paid, 0);
+
+          return {
+            financialYear: fy,
+            expected: expectedPerFY,
+            paid,
+            due,
+            status: due > 0 ? 'Due' : 'Paid',
+          };
+        });
+
+        const totalDueMember = Math.max(expectedPerFY * financialYears.length - totalPaidAllFY, 0);
+
+        totalDue += totalDueMember;
+
+        if (totalDueMember === 0) {
           fullyPaidCount++;
         }
 
         return {
-          ...m,
+          id: m.id,
+          name: m.name,
+          phone: m.phone,
+          shopName: m.shopName,
+          status: m.status,
 
-          amount, // 🔥 EXPECTED MONTHLY AMOUNT
-          totalPaid: paid,
-          due, // remaining due
+          monthlyFee,
+          expectedPerFY,
 
-          statusLabel: due > 0 ? 'Due' : 'Fully Paid',
+          totalPaid: totalPaidAllFY,
+          totalDue: totalDueMember,
+
+          statusLabel: totalDueMember > 0 ? 'Due' : 'Fully Paid',
+
+          financialYearBreakdown: fyBreakdown,
         };
       });
 
+      // ==============================
+      // RESPONSE
+      // ==============================
       return {
         summary: {
           totalDue,
           fullyPaidMembers: fullyPaidCount,
           totalMembers: total,
+          financialYears,
         },
 
         data: enrichedMembers,
@@ -367,7 +452,7 @@ export class ReportsService {
   // Breakdown:
   // - by payment method: total amount collected for each method
   // - by category: total amount collected for each financial year (from PaymentItem)
-  async collection(somiteeId: number, query: CollectionReportDto) {
+  async collectionOld(somiteeId: number, query: CollectionReportDto) {
     try {
       const page = Number(query.page || 1);
       const limit = Number(query.limit || 10);
@@ -545,6 +630,225 @@ export class ReportsService {
           totalDue,
           fullyPaidMembers: fullyPaid,
           activeMembers,
+        },
+
+        byMethod: methodBreakdown.map((m) => ({
+          method: m.method,
+          amount: m._sum.amount || 0,
+        })),
+
+        data: enrichedPayments,
+
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('reports.collection error:', {
+          message: error.message,
+          stack: error.stack,
+          somiteeId,
+          query,
+        });
+      }
+
+      throw new InternalServerErrorException('Failed to collection report');
+    }
+  }
+  private getCurrentFinancialYear(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+
+    // July–June logic
+    if (month >= 7) {
+      return `${year}-${year + 1}`;
+    }
+
+    return `${year - 1}-${year}`;
+  }
+  async collection(somiteeId: number, query: CollectionReportDto) {
+    try {
+      const page = Number(query.page || 1);
+      const limit = Number(query.limit || 10);
+      const skip = (page - 1) * limit;
+
+      const where: any = {
+        somiteeId: BigInt(somiteeId),
+      };
+
+      // ======================
+      // DEFAULT FY
+      // ======================
+      const financialYear = query.financialYear || this.getCurrentFinancialYear();
+
+      // ======================
+      // DATE FILTER
+      // ======================
+      if (query.dateFrom || query.dateTo) {
+        where.paymentDate = {};
+        if (query.dateFrom) where.paymentDate.gte = new Date(query.dateFrom);
+        if (query.dateTo) where.paymentDate.lte = new Date(query.dateTo);
+      }
+
+      if (query.status) where.status = query.status;
+      if (query.method) where.method = query.method;
+      if (query.memberId) where.memberId = BigInt(query.memberId);
+
+      // ======================
+      // MAIN DATA
+      // ======================
+      const [payments, total, aggregate, members, paymentItems] = await Promise.all([
+        this.prisma.payment.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: {paymentDate: 'desc'},
+          include: {
+            member: {
+              select: {
+                id: true,
+                name: true,
+                shopName: true,
+                monthlyFee: true,
+              },
+            },
+            paymentItems: {
+              where: {
+                financialYear, // 🔥 IMPORTANT FY FILTER
+              },
+            },
+          },
+        }),
+
+        this.prisma.payment.count({where}),
+
+        this.prisma.payment.aggregate({
+          where,
+          _sum: {amount: true},
+        }),
+
+        this.prisma.member.findMany({
+          where: {
+            somiteeId: BigInt(somiteeId),
+          },
+          select: {
+            id: true,
+            monthlyFee: true,
+            status: true,
+          },
+        }),
+
+        this.prisma.paymentItem.findMany({
+          where: {
+            somiteeId: BigInt(somiteeId),
+            financialYear, // 🔥 IMPORTANT FY FILTER
+          },
+          select: {
+            memberId: true,
+            month: true,
+            amount: true,
+          },
+        }),
+      ]);
+
+      // ======================
+      // TOTAL COLLECTION
+      // ======================
+      const totalCollection = aggregate._sum.amount || 0;
+
+      // ======================
+      // MAPS
+      // ======================
+      const paidMap = new Map<number, number>();
+      const monthMap = new Map<number, Set<number>>();
+
+      paymentItems.forEach((p) => {
+        const memberId = Number(p.memberId);
+
+        paidMap.set(memberId, (paidMap.get(memberId) || 0) + (p.amount || 0));
+
+        if (!monthMap.has(memberId)) {
+          monthMap.set(memberId, new Set());
+        }
+
+        monthMap.get(memberId)!.add(p.month);
+      });
+
+      // ======================
+      // DUE CALC
+      // ======================
+      let totalDue = 0;
+      let fullyPaid = 0;
+
+      members.forEach((m) => {
+        const paid = paidMap.get(Number(m.id)) || 0;
+        const expected = m.monthlyFee || 0;
+
+        const due = Math.max(expected - paid, 0);
+
+        totalDue += due;
+
+        if (due === 0 && m.status === 'active') {
+          fullyPaid++;
+        }
+      });
+
+      // ======================
+      // ENRICH PAYMENTS
+      // ======================
+      const enrichedPayments = payments.map((p) => {
+        const memberId = Number(p.memberId);
+        const monthsPaid = monthMap.get(memberId) || new Set();
+
+        const monthStatus = Array.from({length: 12}, (_, i) => {
+          const month = i + 1;
+          return {
+            month,
+            paid: monthsPaid.has(month),
+          };
+        });
+
+        return {
+          id: p.id,
+          amount: p.amount,
+          method: p.method,
+          status: p.status,
+          date: p.paymentDate,
+
+          financialYear, // 🔥 IMPORTANT
+
+          member: {
+            id: p.member?.id,
+            name: p.member?.name,
+            shopName: p.member?.shopName,
+          },
+
+          months: monthStatus,
+        };
+      });
+
+      // ======================
+      // METHOD BREAKDOWN
+      // ======================
+      const methodBreakdown = await this.prisma.payment.groupBy({
+        by: ['method'],
+        where,
+        _sum: {
+          amount: true,
+        },
+      });
+
+      return {
+        summary: {
+          financialYear,
+          totalCollection,
+          totalDue,
+          fullyPaidMembers: fullyPaid,
         },
 
         byMethod: methodBreakdown.map((m) => ({
