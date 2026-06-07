@@ -53,11 +53,11 @@ export class RegisterMemberDto {
   @ApiProperty({
     example: 'B+',
     enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
-    default: 'B+',
+    required: false,
   })
   @IsOptional()
   @IsIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])
-  bloodGroup: string = 'B+';
+  bloodGroup?: string;
 
   @ApiProperty({
     example: '01712345678',
