@@ -58,7 +58,7 @@ export class BankAccountsService {
     }
   }
 
-  async create(somiteeId: number, userId: number, body: CreateBankAccountDto) {
+  async createOld(somiteeId: number, userId: number, body: CreateBankAccountDto) {
     try {
       const openingBalance = body.openingBalance ?? body.balance ?? 0;
 
@@ -81,12 +81,57 @@ export class BankAccountsService {
       throw new InternalServerErrorException('Failed to create bank account');
     }
   }
+  async create(somiteeId: number, userId: number, body: CreateBankAccountDto) {
+    try {
+      const openingBalance = body.openingBalance ?? body.balance ?? 0;
+      const type = body.type ?? 'BANK';
+
+      // Only one hand cash account per somitee
+      if (type === 'HAND_CASH') {
+        const existingHandCash = await this.prisma.bankAccount.findFirst({
+          where: {
+            somiteeId: BigInt(somiteeId),
+            type: 'HAND_CASH',
+          },
+        });
+
+        if (existingHandCash) {
+          throw new BadRequestException('Hand cash account already exists');
+        }
+      }
+
+      return await this.prisma.bankAccount.create({
+        data: {
+          type,
+
+          // For HAND_CASH, bankName acts as title
+          bankName: body.bankName,
+          accountName: body.accountName ?? body.bankName,
+          accountNumber: body.accountNumber ?? body.bankName,
+
+          openingBalance,
+          balance: openingBalance,
+
+          somiteeId: BigInt(somiteeId),
+          createdById: BigInt(userId),
+        },
+      });
+    } catch (error) {
+      console.error('bank.create error', error);
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to create bank account');
+    }
+  }
 
   // Update Bank Account
   // Only bankName, accountName, accountNumber can be updated
   // ⚠️ never freely update balance in accounting system
   // for balance correction, use deposit/withdraw with proper note
-  async update(id: number, somiteeId: number, body: UpdateBankAccountDto) {
+  async updateOld(id: number, somiteeId: number, body: UpdateBankAccountDto) {
     try {
       const account = await this.findOne(id, somiteeId);
 
@@ -130,6 +175,61 @@ export class BankAccountsService {
 
       if (error instanceof NotFoundException) throw error;
       if (error instanceof BadRequestException) throw error;
+
+      throw new InternalServerErrorException('Failed to update');
+    }
+  }
+
+  async update(id: number, somiteeId: number, body: UpdateBankAccountDto) {
+    try {
+      const account = await this.findOne(id, somiteeId);
+
+      // Prevent direct balance update
+      if ((body as any).balance !== undefined) {
+        throw new BadRequestException('Balance cannot be updated directly');
+      }
+
+      // Prevent changing account type
+      if (body.type !== undefined && body.type !== account.type) {
+        throw new BadRequestException('Account type cannot be changed');
+      }
+
+      // Prevent opening balance update after transactions
+      if (body.openingBalance !== undefined) {
+        const hasTransactions = await this.prisma.bankTransaction.count({
+          where: {
+            bankAccountId: account.id,
+          },
+        });
+
+        if (hasTransactions > 0) {
+          throw new BadRequestException('Cannot change opening balance after transactions exist');
+        }
+      }
+
+      return await this.prisma.bankAccount.update({
+        where: {id},
+        data: {
+          bankName: body.bankName,
+          accountName: body.accountName,
+          accountNumber: body.accountNumber,
+          openingBalance: body.openingBalance,
+        },
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('bank-accounts.service.update error:', {
+          message: error.message,
+          stack: error.stack,
+          id,
+          somiteeId,
+          body,
+        });
+      }
+
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
 
       throw new InternalServerErrorException('Failed to update');
     }

@@ -1,7 +1,16 @@
-import {IsString, IsOptional, IsNumber, Min} from 'class-validator';
+import {IsString, IsOptional, IsNumber, Min, IsEnum} from 'class-validator';
 import {ApiPropertyOptional} from '@nestjs/swagger';
 
+export enum AccountType {
+  BANK = 'BANK',
+  HAND_CASH = 'HAND_CASH',
+}
+
 export class UpdateBankAccountDto {
+  @IsOptional()
+  @IsEnum(AccountType)
+  type?: AccountType; // default BANK
+
   @ApiPropertyOptional({example: 'City Bank'})
   @IsOptional()
   @IsString()

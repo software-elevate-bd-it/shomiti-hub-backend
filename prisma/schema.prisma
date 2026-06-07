@@ -630,6 +630,7 @@ model SubscriptionPlan {
 
 model BankAccount {
   id             BigInt @id @default(autoincrement()) @db.UnsignedBigInt
+  type           BankAccountType @default(BANK)
   bankName       String @map("bank_name")
   accountName    String @map("account_name")
   accountNumber  String @map("account_number")
@@ -656,6 +657,11 @@ model BankAccount {
   @@index([updatedById])
   @@index([somiteeId, createdAt])
   @@map("bank_accounts")
+}
+
+enum BankAccountType {
+  BANK
+  HAND_CASH
 }
 
 model BankTransaction {
